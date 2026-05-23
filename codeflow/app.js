@@ -33,8 +33,6 @@ let currentPresetKey = 'fastapi';
 let lastTriggeredIdx = -1;
 let scanningActive = false;
 let timePollInterval = null;
-let lastRequestedTimestamp = -1;
-let lastRequestedVideoId = '';
 
 // Mock Player State Variables
 let isMockPlayer = false;
@@ -42,10 +40,17 @@ let mockPlayerState = 2; // 2 = Paused, 1 = Playing
 let mockCurrentTime = 0;
 let mockDuration = 300;
 
+// Captured real-time code variable
+window.capturedCode = '';
+
+// API request deduplication variables
+let lastRequestedTimestamp = -1;
+let lastRequestedVideoId = '';
+
 // Preset Data Configuration
 const presets = {
     fastapi: {
-        videoId: 'tLKKmCO4D1g', // Standard FastAPI or coding video
+        videoId: 'k_I82a2tJpI',
         title: 'FastAPI 기초 강의',
         language: 'python',
         defaultCode: `# FastAPI 기초 강의 실습 파일\n# '자동 스캔: ON' 상태로 영상을 재생하거나 아래 타임라인을 클릭하세요.\n`,
@@ -104,7 +109,7 @@ const presets = {
         ]
     },
     pandas: {
-        videoId: 'F6elT81r52I', // Standard Pandas tutorial
+        videoId: 'l8D1wT6s0Wk',
         title: 'Pandas 데이터 분석 기초',
         language: 'python',
         defaultCode: `# Pandas 데이터 분석 실습 파일\n# '자동 스캔: ON' 상태로 영상을 재생하거나 아래 타임라인을 클릭하세요.\n`,
@@ -155,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Lucide Icons
     lucide.createIcons();
 
-    // Initialize Monaco Editor
-    initMonaco();
+    // Initialize CodeMirror (MIT License)
+    initCodeMirrorEditor();
 
     // Initialize Xterm.js
     initTerminal();
@@ -170,44 +175,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render initial timeline
     renderTimeline();
 
-    // If YouTube API loaded before app.js, initialize player directly
+    // If YouTube API loaded before, initialize player directly
     if (window.YT && window.YT.Player) {
         initYouTubePlayer();
     }
 
-    // Fallback if YouTube API fails to load or fails to cue video in 4 seconds
+    // Fallback if YouTube API fails to load entirely in 6 seconds (offline or script block)
     setTimeout(() => {
-        if (!player || (typeof player.getDuration === 'function' && player.getDuration() === 0)) {
+        if (typeof YT === 'undefined' || !player) {
             if (player && typeof player.destroy === 'function') {
                 try { player.destroy(); } catch (e) { }
             }
             player = null;
             setupMockPlayerFallback();
-
-            const bypassBtn = document.getElementById('bypass-player-btn');
-            if (bypassBtn) {
-                bypassBtn.innerHTML = `<i data-lucide="check-circle"></i> 에뮬레이터 모드 활성`;
-                bypassBtn.style.background = 'rgba(0, 230, 118, 0.08)';
-                bypassBtn.style.borderColor = 'rgba(0, 230, 118, 0.3)';
-                bypassBtn.style.color = '#00e676';
-                lucide.createIcons();
-            }
         }
-    }, 4000);
+    }, 6000);
 });
 
-// Monaco Editor Initialization
-function initMonaco() {
-    if (typeof require === 'undefined') {
-        console.warn("Monaco Editor loader (require) is not defined. Using textarea fallback.");
+// CodeMirror Editor Initialization
+function initCodeMirrorEditor() {
+    const initialCode = presets[currentPresetKey].defaultCode;
+
+    if (typeof CodeMirror === 'undefined') {
+        console.warn("CodeMirror is not defined. Using textarea fallback.");
         const container = document.getElementById('editor-container');
         if (container) {
             container.innerHTML = `
-                <div style="width:100%; height:100%; padding:10px; background:#1e1e1e; border:none; display:flex; box-sizing:border-box;">
-                    <textarea id="editor-fallback-textarea" style="flex:1; background:#1e1e1e; color:#d4d4d4; border:none; font-family:'Fira Code', monospace; font-size:14px; outline:none; resize:none; line-height:1.5; box-sizing:border-box;"></textarea>
+                <div style="width:100%; height:100%; padding:10px; background:#ffffff; border:none; display:flex; box-sizing:border-box;">
+                    <textarea id="editor-fallback-textarea" style="flex:1; background:#ffffff; color:#0f172a; border:none; font-family:'Fira Code', monospace; font-size:14px; outline:none; resize:none; line-height:1.5; box-sizing:border-box;"></textarea>
                 </div>
             `;
-            const initialCode = presets[currentPresetKey].defaultCode;
             document.getElementById('editor-fallback-textarea').value = initialCode;
         }
 
@@ -224,38 +221,24 @@ function initMonaco() {
         return;
     }
 
-    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
-    require(['vs/editor/editor.main'], () => {
-        // Set worker configurations for file:// compatibility
-        window.MonacoEnvironment = {
-            getWorkerUrl: function (workerId, label) {
-                return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-                    self.MonacoEnvironment = {
-                        baseUrl: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/'
-                    };
-                    importScripts('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/base/worker/workerMain.js');
-                `)}`;
-            }
-        };
+    const container = document.getElementById('editor-container');
+    container.innerHTML = '';
 
-        const initialCode = presets[currentPresetKey].defaultCode;
-        editor = monaco.editor.create(document.getElementById('editor-container'), {
-            value: initialCode,
-            language: 'python',
-            theme: 'vs-dark',
-            automaticLayout: true,
-            fontSize: 14,
-            fontFamily: 'Fira Code, monospace',
-            minimap: { enabled: false },
-            roundedSelection: true,
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on',
-            scrollbar: {
-                verticalScrollbarSize: 8,
-                horizontalScrollbarSize: 8
-            }
-        });
+    editor = CodeMirror(container, {
+        value: initialCode,
+        mode: 'python',
+        lineNumbers: true,
+        indentUnit: 4,
+        tabSize: 4,
+        lineWrapping: true,
+        viewportMargin: Infinity
     });
+
+    // Real-time captured variable update on editor edits
+    editor.on('change', (cm) => {
+        window.capturedCode = cm.getValue();
+    });
+    window.capturedCode = initialCode;
 }
 
 // Xterm.js Initialization
@@ -264,7 +247,7 @@ function initTerminal() {
         console.warn("Xterm.js is not defined. Using textarea fallback for terminal.");
         const termContainer = document.getElementById('terminal-container');
         if (termContainer) {
-            termContainer.innerHTML = `<textarea id="terminal-fallback" readonly style="width:100%; height:100%; background:#090a0d; color:#e4e7eb; border:none; font-family:'Fira Code', monospace; font-size:12px; resize:none; padding:8px; outline:none; line-height:1.4; box-sizing:border-box;"></textarea>`;
+            termContainer.innerHTML = `<textarea id="terminal-fallback" readonly style="width:100%; height:100%; background:#f8fafc; color:#0f172a; border:none; font-family:'Fira Code', monospace; font-size:12px; resize:none; padding:8px; outline:none; line-height:1.4; box-sizing:border-box;"></textarea>`;
         }
 
         terminal = {
@@ -290,17 +273,17 @@ function initTerminal() {
         fontSize: 12,
         fontFamily: 'Fira Code, monospace',
         theme: {
-            background: '#090a0d',
-            foreground: '#e4e7eb',
-            cursor: '#00b0ff',
-            black: '#090a0d',
-            red: '#ff1744',
-            green: '#00e676',
-            yellow: '#ff9100',
-            blue: '#00b0ff',
-            magenta: '#ab47bc',
-            cyan: '#00e5ff',
-            white: '#f0f2f5'
+            background: '#f8fafc',
+            foreground: '#0f172a',
+            cursor: '#38bdf8',
+            black: '#f8fafc',
+            red: '#f87171',
+            green: '#34d399',
+            yellow: '#fb923c',
+            blue: '#38bdf8',
+            magenta: '#818cf8',
+            cyan: '#22d3ee',
+            white: '#e2e8f0'
         },
         convertEol: true
     });
@@ -318,17 +301,12 @@ async function initPyodide() {
 
     if (typeof loadPyodide === 'undefined') {
         terminal.writeln('[System Error] Pyodide CDN을 불러올 수 없습니다. 오프라인이거나 CDN이 차단되었습니다.');
-        const text = document.getElementById('sandbox-text');
-        if (text) {
-            text.innerText = 'Sandbox: Offline';
-        }
         return;
     }
 
     try {
         pyodide = await loadPyodide();
 
-        // Setup stdout/stderr capturing redirects
         pyodide.setStdout({
             batched: (str) => {
                 terminal.writeln(str);
@@ -341,18 +319,7 @@ async function initPyodide() {
             }
         });
 
-        // Print success logs to Terminal
         terminal.writeln('\x1b[38;5;82m[System] Python WASM Sandbox 엔진 로드 완료! 코드 실행이 가능합니다.\x1b[0m');
-
-        // Update header badges
-        const dot = document.getElementById('sandbox-dot');
-        const text = document.getElementById('sandbox-text');
-        if (dot) {
-            dot.className = 'pulse-dot green';
-        }
-        if (text) {
-            text.innerText = 'Sandbox: Python WASM Ready';
-        }
 
     } catch (error) {
         terminal.writeln('\x1b[38;5;196m[System] Pyodide 파이썬 엔진 로드 실패. 브라우저가 오프라인이거나 CDN 오류일 수 있습니다.\x1b[0m');
@@ -364,9 +331,8 @@ async function initPyodide() {
 // YouTube Player Event Integration
 // ==========================================
 
-// Initialize YouTube Player
 function initYouTubePlayer() {
-    if (player) return; // Prevent double initialization
+    if (player) return;
     if (typeof YT === 'undefined' || !YT.Player) return;
 
     player = new YT.Player('youtube-player', {
@@ -374,7 +340,7 @@ function initYouTubePlayer() {
         playerVars: {
             'playsinline': 1,
             'rel': 0,
-            'controls': 1 // Standard controls for quality, fullscreen, seeking
+            'controls': 1
         },
         events: {
             'onReady': onPlayerReady,
@@ -384,17 +350,13 @@ function initYouTubePlayer() {
     });
 }
 
-// Global callback for YouTube IFrame Player
 window.onYouTubeIframeAPIReady = function () {
     initYouTubePlayer();
 };
 
 function onPlayerReady(event) {
-    // Setup time indicator updates
     const duration = player.getDuration();
     document.getElementById('duration-time').innerText = formatTime(duration);
-
-    // Start tracking video current time
     startTimeTracker();
 }
 
@@ -416,13 +378,11 @@ function onPlayerError(event) {
     console.warn("YouTube Player encountered an error:", event.data);
     terminal.writeln(`\x1b[38;5;196m[System Warning] YouTube 플레이어 오류 감지 (코드: ${event.data}).\x1b[0m`);
 
-    // Destroy the player instance if exists to prevent overlapping logs
     if (player && typeof player.destroy === 'function') {
         try { player.destroy(); } catch (e) { }
     }
     player = null;
 
-    // Automatically trigger Mock Player Fallback
     setupMockPlayerFallback();
 }
 
@@ -492,10 +452,11 @@ async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = fal
             toastText.innerHTML = `<span style="color:#00e5ff;">[AI Scanner]</span> OCR 추출 완료 (캐시 ${data.cached ? '히트' : '미스'}).`;
         }
 
-        // Update Monaco editor code
+        // Update CodeMirror editor
         if (editor) {
             if (forceUpdateEditor || !editor.hasFocus()) {
                 editor.setValue(code);
+                window.capturedCode = code; // Sync captured variable
             } else {
                 if (terminal) {
                     terminal.writeln(`\x1b[38;5;244m[System] 사용자가 편집 중입니다. 자동 동기화를 건너뜁니다.\x1b[0m`);
@@ -534,7 +495,6 @@ function startTimeTracker() {
     timePollInterval = setInterval(() => {
         if (!player || typeof player.getCurrentTime !== 'function') return;
 
-        // Increment mock current time if playing under mock mode
         if (isMockPlayer && mockPlayerState === 1) {
             mockCurrentTime = Math.min(mockCurrentTime + 0.5, mockDuration);
             if (mockCurrentTime >= mockDuration) {
@@ -547,12 +507,11 @@ function startTimeTracker() {
         const currentSec = Math.floor(curTime);
         document.getElementById('current-time').innerText = formatTime(curTime);
 
-        // Trigger Code Synchronization check via REST API
         if (autoScanEnabled && !scanningActive) {
             const activePreset = presets[currentPresetKey];
             const videoId = activePreset ? activePreset.videoId : '';
             if (videoId) {
-                fetchExtractedCode(videoId, currentSec, false, false);
+                fetchExtractedCode(videoId, currentSec, false);
             }
         }
     }, 1000);
@@ -565,7 +524,6 @@ function stopTimeTracker() {
     }
 }
 
-// Format seconds into MM:SS format
 function formatTime(sec) {
     const minutes = Math.floor(sec / 60);
     const seconds = Math.floor(sec % 60);
@@ -573,14 +531,13 @@ function formatTime(sec) {
 }
 
 // ==========================================
-// Code Scan & Synchronizer Module (F-01, F-02)
+// Code Scan & Synchronizer Module
 // ==========================================
 
 function checkCodeSync(currentTime) {
     const activePreset = presets[currentPresetKey];
     const timeline = activePreset.timeline;
 
-    // Find highest index item where time <= current time
     let matchIdx = -1;
     for (let i = 0; i < timeline.length; i++) {
         if (currentTime >= timeline[i].time) {
@@ -588,23 +545,18 @@ function checkCodeSync(currentTime) {
         }
     }
 
-    // If the index has changed, trigger OCR scan sync
     if (matchIdx !== -1 && matchIdx !== lastTriggeredIdx) {
-        // Reset index tracking immediately to prevent double scan triggers
         const prevIdx = lastTriggeredIdx;
         lastTriggeredIdx = matchIdx;
 
-        // If we skip backwards or jump to index 0, sync immediately without scan overlay
         if (matchIdx < prevIdx || matchIdx === 0) {
             syncCodeEditor(matchIdx, false, false);
         } else {
-            // Trigger laser scanning visual overlay
             triggerOcrScanAnimation(matchIdx, false);
         }
     }
 }
 
-// Trigger Visual AI Scanning Overlays (Bounding boxes & Lasers)
 function triggerOcrScanAnimation(index, force = false) {
     scanningActive = true;
 
@@ -613,15 +565,12 @@ function triggerOcrScanAnimation(index, force = false) {
     const toast = document.getElementById('ocr-toast');
     const toastText = document.getElementById('ocr-toast-text');
 
-    // 1. Show the main scan overlay
     overlay.classList.remove('hidden');
     toast.classList.remove('hidden');
-    boxContainer.innerHTML = ''; // Clear old boxes
+    boxContainer.innerHTML = '';
 
-    // 2. Display OCR scanning text
     toastText.innerHTML = `AI Scanner: 화면 변경 감지. OCR 프레임 분석 중...`;
 
-    // 3. Render bounding boxes for this index after 0.5s to align with laser sweep
     setTimeout(() => {
         const item = presets[currentPresetKey].timeline[index];
         if (item.boxes && item.boxes.length > 0) {
@@ -643,42 +592,37 @@ function triggerOcrScanAnimation(index, force = false) {
         }
     }, 600);
 
-    // 4. Run LLM parsing check after 1.5 seconds
     setTimeout(() => {
-        toastText.innerHTML = `<span style="color:#00e5ff;">[LLM 보정]</span> 텍스트 오류 복구 및 코드 들여쓰기 교정 완료.`;
+        toastText.innerHTML = `<span style="color:#38bdf8;">[LLM 보정]</span> 텍스트 오류 복구 및 코드 들여쓰기 교정 완료.`;
     }, 1800);
 
-    // 5. Inject Code, hide laser, and update timeline at 2.8s
     setTimeout(() => {
         syncCodeEditor(index, true, force);
 
-        // Hide Scan Overlays
         overlay.classList.add('hidden');
         toast.classList.add('hidden');
         scanningActive = false;
     }, 3000);
 }
 
-// Sync Editor Code and Update Timeline List
 function syncCodeEditor(index, animate = false, force = false) {
     const item = presets[currentPresetKey].timeline[index];
     if (!item) return;
 
-    // Update Monaco editor code
     if (editor) {
         if (force || !editor.hasFocus()) {
             editor.setValue(item.code);
+            window.capturedCode = item.code; // Sync captured variable
 
-            // Optional quick line highlighting highlight trigger
             if (animate) {
-                const lineCount = editor.getModel().getLineCount();
-                editor.revealLine(lineCount);
-                // Flash notification in editor if needed
+                if (typeof editor.lineCount === 'function') {
+                    const lineCount = editor.lineCount();
+                    editor.scrollIntoView({ line: lineCount - 1, ch: 0 });
+                }
             }
         }
     }
 
-    // Update active state in Smart Timeline
     const items = document.querySelectorAll('.timeline-item');
     items.forEach((el, idx) => {
         if (idx === index) {
@@ -691,7 +635,7 @@ function syncCodeEditor(index, animate = false, force = false) {
 }
 
 // ==========================================
-// Smart Timeline Module (F-03)
+// Smart Timeline Module
 // ==========================================
 
 function renderTimeline() {
@@ -705,10 +649,8 @@ function renderTimeline() {
         const itemEl = document.createElement('div');
         itemEl.className = `timeline-item ${idx === 0 ? 'active' : ''}`;
 
-        // Format seconds for timeline UI display
         const timeStr = formatTime(item.time);
 
-        // Take a small snippet of code for subtext preview
         let snippet = '';
         const lines = item.code.split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#'));
         if (lines.length > 0) {
@@ -726,19 +668,16 @@ function renderTimeline() {
             <i data-lucide="play-circle" class="timeline-play-indicator"></i>
         `;
 
-        // Timeline Item Click - Interactive Seek & Sync
         itemEl.addEventListener('click', () => {
             if (player && typeof player.seekTo === 'function') {
                 player.seekTo(item.time, true);
 
-                // If paused, force play
                 if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
                     player.playVideo();
                 }
 
-                // Immediately synchronize content (bypass time polling delays)
                 lastTriggeredIdx = idx;
-
+                
                 const activePreset = presets[currentPresetKey];
                 const videoId = activePreset ? activePreset.videoId : '';
                 if (videoId) {
@@ -754,22 +693,36 @@ function renderTimeline() {
 }
 
 // ==========================================
-// Code Runner Sandbox Engine (F-04)
+// Code Runner Sandbox Engine
 // ==========================================
 
 async function executePythonCode() {
+    const selectedLang = document.getElementById('language-select').value;
+    if (selectedLang !== 'python') {
+        if (terminal) {
+            terminal.clear();
+            const displayNames = {
+                'javascript': 'JavaScript',
+                'java': 'Java',
+                'c': 'C'
+            };
+            const displayName = displayNames[selectedLang] || selectedLang;
+            terminal.writeln(`\x1b[38;5;208m[실행 미지원]\x1b[0m 현재 브라우저 샌드박스는 \x1b[1mPython\x1b[0m 언어 실행만 완벽하게 지원합니다.`);
+            terminal.writeln(`\x1b[38;5;244m(학습용 ${displayName} 구문 강조 및 에디팅은 정상 작동 중입니다. 실행 기능은 곧 제공될 예정입니다.)\x1b[0m`);
+        }
+        return;
+    }
+
     if (!pyodide) {
         terminal.writeln('\x1b[38;5;196m[System Error] Sandbox가 아직 활성화되지 않았습니다. 잠시 후 다시 실행하세요.\x1b[0m');
         return;
     }
 
-    // Clear terminal screen and show start command
     terminal.clear();
     terminal.writeln('\x1b[38;5;33m> Running Python Sandbox environment...\x1b[0m');
 
-    const userCode = editor ? editor.getValue() : '';
+    const userCode = window.capturedCode || (editor ? editor.getValue() : '');
 
-    // Load Pandas package if the script imports it
     if (userCode.includes('import pandas') || userCode.includes('from pandas')) {
         terminal.writeln('\x1b[38;5;208m[System] Pandas WebAssembly 패키지를 원격에서 로드 중입니다 (약 5MB)... \x1b[0m');
         try {
@@ -781,10 +734,8 @@ async function executePythonCode() {
         }
     }
 
-    // Interceptor setups for FastAPI web servers
     const isFastApiApp = userCode.includes('FastAPI') && userCode.includes('uvicorn.run');
 
-    // Boost script to insert inside Pyodide context
     const boostScript = `
 import sys
 from types import ModuleType
@@ -793,7 +744,6 @@ import re
 import urllib.parse
 import json
 
-# Setup Mock FastAPI structure if not exists
 class MockFastAPI:
     def __init__(self):
         self.routes = {}
@@ -810,12 +760,10 @@ class MockFastAPI:
             return func
         return decorator
 
-# Register module injection
 fastapi_mod = ModuleType('fastapi')
 fastapi_mod.FastAPI = MockFastAPI
 sys.modules['fastapi'] = fastapi_mod
 
-# Setup Mock Uvicorn runner
 class MockUvicorn:
     def run(self, app, host='127.0.0.1', port=8000, *args, **kwargs):
         global __fastapi_app__
@@ -825,7 +773,6 @@ class MockUvicorn:
 
 sys.modules['uvicorn'] = MockUvicorn()
 
-# Global dispatcher to process router queries
 async def dispatch_request(method, url):
     global __fastapi_app__
     if '__fastapi_app__' not in globals() or __fastapi_app__ is None:
@@ -840,8 +787,7 @@ async def dispatch_request(method, url):
         if route_method != method:
             continue
             
-        # Parse path bindings e.g. /items/{item_id} -> /items/([^/]+)
-        pattern = re.sub(r'\\{([^}]+)\\}', r'(?P<\\1>[^/]+)', route_path)
+        pattern = re.sub(r'\\\\{([^}]+)\\\\}', r'(?P<\\\\1>[^/]+)', route_path)
         pattern = '^' + pattern + '$'
         
         match = re.match(pattern, path)
@@ -882,29 +828,22 @@ async def dispatch_request(method, url):
 `;
 
     try {
-        // Run boost configuration first
         await pyodide.runPythonAsync(boostScript);
-
-        // Execute user's code inside Pyodide sandbox environment
         await pyodide.runPythonAsync(userCode);
 
-        // Toggle web preview panel on FastAPI
         const previewCard = document.getElementById('web-preview-card');
         if (isFastApiApp) {
             previewCard.classList.remove('hidden');
-            // Trigger automatic initial call on GET /
             requestMockFastApi('/');
         } else {
             previewCard.classList.add('hidden');
         }
 
     } catch (err) {
-        // Syntax and Execution traceback formatting
         const errLines = err.message.split('\n');
         terminal.writeln('\x1b[38;5;196m> Python Traceback (Error during execution):\x1b[0m');
 
         errLines.forEach(line => {
-            // Highlight traceback references and specific syntax issues
             if (line.includes('File') || line.includes('line')) {
                 terminal.writeln('\x1b[38;5;208m' + line + '\x1b[0m');
             } else {
@@ -914,7 +853,6 @@ async def dispatch_request(method, url):
     }
 }
 
-// Request dispatcher handler for Web Preview
 async function requestMockFastApi(path) {
     if (!pyodide) return;
 
@@ -924,14 +862,10 @@ async function requestMockFastApi(path) {
     }
 
     try {
-        // Sanitize path URL
         const encodedPath = encodeURI(path);
         const fullUrl = `http://127.0.0.1:8000${encodedPath}`;
-
-        // Run dispatch inside python namespace
         const resultString = await pyodide.runPythonAsync(`dispatch_request("GET", "${fullUrl}")`);
 
-        // Beautify JSON output
         const jsonResult = JSON.parse(resultString);
         if (outputEl) {
             outputEl.innerText = JSON.stringify(jsonResult, null, 4);
@@ -947,8 +881,9 @@ async function requestMockFastApi(path) {
 // Custom UI Controls & Actions
 // ==========================================
 
+let hdSyncActive = false;
+
 function setupEventListeners() {
-    // 1. Play / Pause Button click
     const playBtn = document.getElementById('play-pause-btn');
     playBtn.addEventListener('click', () => {
         if (!player || typeof player.getPlayerState !== 'function') return;
@@ -961,7 +896,6 @@ function setupEventListeners() {
         }
     });
 
-    // 2. Auto Scan Toggle Switch
     const scanToggle = document.getElementById('auto-scan-toggle');
     const scanStatusText = document.getElementById('scan-status-label');
     scanToggle.addEventListener('change', (e) => {
@@ -979,49 +913,60 @@ function setupEventListeners() {
         }
     });
 
-    // 3. Preset Selector Buttons
-    const btnFastApi = document.getElementById('preset-fastapi');
-    const btnPandas = document.getElementById('preset-pandas');
-
-    btnFastApi.addEventListener('click', () => switchPreset('fastapi', btnFastApi, btnPandas));
-    btnPandas.addEventListener('click', () => switchPreset('pandas', btnPandas, btnFastApi));
-
-    // 5. YouTube Bypass Button (Manual Emulator Switch)
-    const bypassBtn = document.getElementById('bypass-player-btn');
-    if (bypassBtn) {
-        bypassBtn.addEventListener('click', () => {
-            if (!isMockPlayer) {
-                // Destroy player
-                if (player && typeof player.destroy === 'function') {
-                    try { player.destroy(); } catch (e) { }
+    // HD Sync Button Click Listener
+    const hdSyncBtn = document.getElementById('hd-sync-btn');
+    if (hdSyncBtn) {
+        hdSyncBtn.addEventListener('click', () => {
+            hdSyncActive = !hdSyncActive;
+            if (hdSyncActive) {
+                hdSyncBtn.classList.add('active');
+                hdSyncBtn.innerHTML = `<i data-lucide="check"></i> <span>HD Sync ON</span>`;
+                if (terminal) {
+                    terminal.writeln(`\x1b[38;5;82m[HD Sync] 고화질 분석 싱크 모드가 활성화되었습니다. (스캔 정밀도 극대화)\x1b[0m`);
                 }
-                player = null;
-                setupMockPlayerFallback();
-                // Change button style to indicate active bypass
-                bypassBtn.innerHTML = `<i data-lucide="check-circle"></i> 에뮬레이터 모드 활성`;
-                bypassBtn.style.background = 'rgba(0, 230, 118, 0.08)';
-                bypassBtn.style.borderColor = 'rgba(0, 230, 118, 0.3)';
-                bypassBtn.style.color = '#00e676';
-                lucide.createIcons();
+            } else {
+                hdSyncBtn.classList.remove('active');
+                hdSyncBtn.innerHTML = `<i data-lucide="sparkles"></i> <span>HD Sync ON</span>`;
+                if (terminal) {
+                    terminal.writeln(`\x1b[38;5;244m[HD Sync] 일반 화질 싱크 모드로 전환되었습니다.\x1b[0m`);
+                }
+            }
+            lucide.createIcons();
+        });
+    }
+
+    // Language Dropdown Selection Listener
+    const langSelect = document.getElementById('language-select');
+    if (langSelect) {
+        langSelect.addEventListener('change', (e) => {
+            const lang = e.target.value;
+            let mode = 'python';
+            if (lang === 'javascript') mode = 'text/javascript';
+            else if (lang === 'c') mode = 'text/x-csrc';
+            else if (lang === 'java') mode = 'text/x-java';
+            
+            if (editor) {
+                editor.setOption('mode', mode);
+            }
+            if (terminal) {
+                const langLabel = lang.toUpperCase();
+                terminal.writeln(`\x1b[38;5;82m[System] 에디터 언어 모드가 ${langLabel}(으)로 변경되었습니다.\x1b[0m`);
             }
         });
     }
 
-    // 4. URL Address Input Loader
     const loadBtn = document.getElementById('load-btn');
     const urlInput = document.getElementById('youtube-url');
     loadBtn.addEventListener('click', () => {
         const urlValue = urlInput.value.trim();
         if (!urlValue) return;
 
-        // Regex to parse YouTube Video ID
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
         const match = urlValue.match(regExp);
 
         if (match && match[2].length === 11) {
             const videoId = match[2];
 
-            // Check if it matches existing presets, otherwise create simulated fallback
             let foundPresetKey = null;
             for (const key in presets) {
                 if (presets[key].videoId === videoId) {
@@ -1031,16 +976,11 @@ function setupEventListeners() {
             }
 
             if (foundPresetKey) {
-                // If predefined, load preset
-                const targetBtn = foundPresetKey === 'fastapi' ? btnFastApi : btnPandas;
-                const otherBtn = foundPresetKey === 'fastapi' ? btnPandas : btnFastApi;
-                switchPreset(foundPresetKey, targetBtn, otherBtn);
+                switchPreset(foundPresetKey);
             } else {
-                // Custom User Video fallback
                 terminal.writeln(`\x1b[38;5;33m[System] 외부 강의 비디오 연동 시도: ${videoId}\x1b[0m`);
                 terminal.writeln(`\x1b[38;5;208m[System] AI OCR 스캐너가 새로운 영상을 위한 스마트 학습 타임라인을 자동 생성 중입니다...\x1b[0m`);
 
-                // Add simulated custom video configuration to presets dynamically
                 presets['custom'] = {
                     videoId: videoId,
                     title: '외부 유튜브 강의 실습',
@@ -1071,26 +1011,24 @@ function setupEventListeners() {
                     ]
                 };
 
-                // Switch preset keys to custom setup
-                btnFastApi.classList.remove('active');
-                btnPandas.classList.remove('active');
-
                 currentPresetKey = 'custom';
                 lastTriggeredIdx = -1;
 
-                // Load video player frame
+                restoreRealPlayerIfNeeded();
+
                 if (player && typeof player.loadVideoById === 'function') {
                     player.loadVideoById(videoId);
+                } else {
+                    initYouTubePlayer();
                 }
 
-                // Render custom timeline structure
                 renderTimeline();
 
                 if (editor) {
                     editor.setValue(presets['custom'].defaultCode);
+                    window.capturedCode = presets['custom'].defaultCode; // Sync captured variable
                 }
 
-                // Hide preview
                 document.getElementById('web-preview-card').classList.add('hidden');
             }
         } else {
@@ -1098,15 +1036,13 @@ function setupEventListeners() {
         }
     });
 
-    // 5. Code Execution Run Button
     const runBtn = document.getElementById('run-btn');
     runBtn.addEventListener('click', executePythonCode);
 
-    // 6. Save File Button
     const saveBtn = document.getElementById('save-btn');
     saveBtn.addEventListener('click', () => {
         if (!editor) return;
-        const code = editor.getValue();
+        const code = window.capturedCode || editor.getValue();
 
         const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -1123,13 +1059,11 @@ function setupEventListeners() {
         terminal.writeln('\x1b[38;5;82m[System] 코드 파일이 로컬 디스크에 저장되었습니다.\x1b[0m');
     });
 
-    // 7. Clear Terminal Button
     const clearTermBtn = document.getElementById('clear-terminal-btn');
     clearTermBtn.addEventListener('click', () => {
         if (terminal) terminal.clear();
     });
 
-    // 8. FastAPI Web View Go Button
     const previewGoBtn = document.getElementById('preview-go-btn');
     const previewPath = document.getElementById('preview-path');
 
@@ -1138,7 +1072,6 @@ function setupEventListeners() {
         requestMockFastApi(path);
     });
 
-    // Also bind Enter key to the address bar input
     previewPath.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             const path = previewPath.value.trim();
@@ -1147,42 +1080,36 @@ function setupEventListeners() {
     });
 }
 
-// Handler for Preset Switches
-function switchPreset(key, activeBtn, inactiveBtn) {
+function switchPreset(key) {
     if (currentPresetKey === key) return;
 
     currentPresetKey = key;
     lastTriggeredIdx = -1;
 
-    // Update button styling classes
-    activeBtn.classList.add('active');
-    inactiveBtn.classList.remove('active');
-
-    // In case of custom button exists, reset it
     const urlInput = document.getElementById('youtube-url');
     if (key === 'fastapi') {
-        urlInput.value = 'https://www.youtube.com/watch?v=tLKKmCO4D1g';
+        urlInput.value = 'https://www.youtube.com/watch?v=k_I82a2tJpI';
     } else {
-        urlInput.value = 'https://www.youtube.com/watch?v=F6elT81r52I';
+        urlInput.value = 'https://www.youtube.com/watch?v=l8D1wT6s0Wk';
     }
 
-    // Switch video player sources
+    restoreRealPlayerIfNeeded();
+
     if (player && typeof player.loadVideoById === 'function') {
         player.loadVideoById(presets[key].videoId);
+    } else {
+        initYouTubePlayer();
     }
 
-    // Rebuild timeline UI
     renderTimeline();
 
-    // Update Monaco editor code
     if (editor) {
         editor.setValue(presets[key].defaultCode);
+        window.capturedCode = presets[key].defaultCode; // Sync captured variable
     }
 
-    // Hide Web Preview panel
     document.getElementById('web-preview-card').classList.add('hidden');
 
-    // Clear terminal screen and logs
     if (terminal) {
         terminal.clear();
         terminal.writeln(`\x1b[38;5;33m[System]\x1b[0m 데모 예제가 전환되었습니다: \x1b[1m${presets[key].title}\x1b[0m`);
@@ -1193,6 +1120,32 @@ function switchPreset(key, activeBtn, inactiveBtn) {
 // Mock Player Fallback Functions
 // ==========================================
 
+function restoreRealPlayerIfNeeded() {
+    if (isMockPlayer) {
+        isMockPlayer = false;
+        player = null;
+
+        const videoWrapper = document.querySelector('.video-container-wrapper');
+        if (videoWrapper) {
+            videoWrapper.innerHTML = `
+                <!-- YouTube IFrame Player -->
+                <div id="youtube-player"></div>
+
+                <!-- AI Scan Overlay -->
+                <div id="video-overlay" class="video-overlay hidden">
+                    <div class="laser-beam"></div>
+                    <div id="bounding-boxes" class="bounding-boxes-container"></div>
+                    <div id="ocr-toast" class="ocr-toast hidden">
+                        <i data-lucide="sparkles" class="toast-sparkle"></i>
+                        <span id="ocr-toast-text">AI Scanner: 화면 변경 감지. OCR 스캔 중...</span>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+    }
+}
+
 function setupMockPlayerFallback() {
     isMockPlayer = true;
     const playerDiv = document.getElementById('youtube-player');
@@ -1201,7 +1154,6 @@ function setupMockPlayerFallback() {
     terminal.writeln('\x1b[38;5;220m[System Warning] YouTube IFrame API 로드 지연 감지 (로컬 file:// 실행 보안 또는 네트워크 지연).\x1b[0m');
     terminal.writeln('\x1b[38;5;82m[System] 비디오 에뮬레이션 플레이어 모드로 자동 전환하여 실습 동기화를 유지합니다.\x1b[0m');
 
-    // Replace playerDiv with a beautiful mockup
     playerDiv.outerHTML = `
         <div id="youtube-player" class="mock-player-container">
             <div class="mock-video-display">
@@ -1216,10 +1168,8 @@ function setupMockPlayerFallback() {
         </div>
     `;
 
-    // Re-create icons
     lucide.createIcons();
 
-    // Define mock player object to match YT.Player interface
     player = {
         getCurrentTime: () => mockCurrentTime,
         getDuration: () => mockDuration,
@@ -1263,12 +1213,10 @@ function setupMockPlayerFallback() {
         }
     };
 
-    // Set initial duration
     const activePreset = presets[currentPresetKey];
     mockDuration = activePreset.timeline[activePreset.timeline.length - 1].time + 60;
     document.getElementById('duration-time').innerText = formatTime(mockDuration);
 
-    // Trigger timeline sync
     renderTimeline();
     updateMockScreenCode();
 }
@@ -1292,6 +1240,7 @@ function updateMockScreenCode(force = false) {
     if (editor) {
         if (force || !editor.hasFocus()) {
             editor.setValue(code);
+            window.capturedCode = code; // Sync captured variable
         }
     }
 }
