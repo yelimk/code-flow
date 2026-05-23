@@ -25,9 +25,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css" />
 
-    <!-- CodeMirror Core & Python Mode JS (MIT License) -->
+    <!-- CodeMirror Core & Modes (MIT License) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
 
     <!-- Pyodide WASM Python Runner (MPL 2.0 License) -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
@@ -38,11 +40,9 @@
         <!-- TOP HEADER -->
         <header class="app-header">
             <div class="logo-area">
-                <div class="logo-glow"></div>
-                <i data-lucide="zap" class="logo-icon"></i>
+                <i data-lucide="book-open" class="logo-icon"></i>
                 <div class="logo-text">
-                    <h1>Code-Flow</h1>
-                    <span>AI YouTube Coding Assistant</span>
+                    <h1>AI YouTube Coding Assistant</h1>
                 </div>
             </div>
 
@@ -55,23 +55,6 @@
                     <i data-lucide="link"></i>
                     <span>강의 연동</span>
                 </button>
-            </div>
-
-            <div class="preset-container">
-                <span class="preset-label">데모 예제:</span>
-                <button id="preset-fastapi" class="preset-btn active">FastAPI 기초</button>
-                <button id="preset-pandas" class="preset-btn">Pandas 데이터 분석</button>
-            </div>
-
-            <div class="status-badges">
-                <div class="status-badge" id="ocr-status">
-                    <span class="pulse-dot green"></span>
-                    <span>OCR Engine: Active</span>
-                </div>
-                <div class="status-badge" id="pyodide-status">
-                    <span class="pulse-dot orange" id="sandbox-dot"></span>
-                    <span id="sandbox-text">Sandbox: Initializing...</span>
-                </div>
             </div>
         </header>
 
@@ -86,9 +69,6 @@
                             <i data-lucide="video" class="header-icon blue"></i>
                             <h2>동영상 학습 영역</h2>
                         </div>
-                        <button id="bypass-player-btn" class="bypass-btn" title="유튜브 동영상 재생 오류(오류 153 등) 발생 시 클릭">
-                            <i data-lucide="alert-triangle"></i> 유튜브 오류 시 에뮬레이터 전환
-                        </button>
                     </div>
                     <div class="video-container-wrapper">
                         <!-- YouTube IFrame Player -->
@@ -104,7 +84,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Custom Player Controls & Scan Switch -->
+                    <!-- Custom Player Controls & Scan Switch & HD Sync -->
                     <div class="player-controls">
                         <div class="media-buttons">
                             <button id="play-pause-btn" class="control-btn" title="재생 / 일시정지">
@@ -113,6 +93,14 @@
                             <span id="current-time">00:00</span>
                             <span class="time-separator">/</span>
                             <span id="duration-time">00:00</span>
+                        </div>
+
+                        <div class="hd-sync-container">
+                            <span class="hd-sync-text">고화질 영상일수록 코드 동기화 정확도가 향상됩니다.</span>
+                            <button id="hd-sync-btn" class="hd-sync-btn" title="고화질 코드 싱크 활성화">
+                                <i data-lucide="sparkles"></i>
+                                <span>HD Sync ON</span>
+                            </button>
                         </div>
 
                         <div class="scan-toggle-container">
@@ -141,10 +129,13 @@
                             <div class="select-wrapper">
                                 <i data-lucide="chevron-down" class="dropdown-arrow"></i>
                                 <select id="language-select">
-                                    <option value="python">Python 3</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="java">Java</option>
+                                    <option value="c">C</option>
                                 </select>
                             </div>
-                            <button id="save-btn" class="icon-btn" title=".py 파일로 저장">
+                            <button id="save-btn" class="icon-btn" title="파일로 저장">
                                 <i data-lucide="download"></i>
                                 <span>저장</span>
                             </button>
@@ -925,6 +916,22 @@
         // ==========================================
 
         async function executePythonCode() {
+            const selectedLang = document.getElementById('language-select').value;
+            if (selectedLang !== 'python') {
+                if (terminal) {
+                    terminal.clear();
+                    const displayNames = {
+                        'javascript': 'JavaScript',
+                        'java': 'Java',
+                        'c': 'C'
+                    };
+                    const displayName = displayNames[selectedLang] || selectedLang;
+                    terminal.writeln(`\x1b[38;5;208m[실행 미지원]\x1b[0m 현재 브라우저 샌드박스는 \x1b[1mPython\x1b[0m 언어 실행만 완벽하게 지원합니다.`);
+                    terminal.writeln(`\x1b[38;5;244m(학습용 ${displayName} 구문 강조 및 에디팅은 정상 작동 중입니다. 실행 기능은 곧 제공될 예정입니다.)\x1b[0m`);
+                }
+                return;
+            }
+
             if (!pyodide) {
                 terminal.writeln('\x1b[38;5;196m[System Error] Sandbox가 아직 활성화되지 않았습니다. 잠시 후 다시 실행하세요.\x1b[0m');
                 return;
@@ -999,7 +1006,7 @@ async def dispatch_request(method, url):
         if route_method != method:
             continue
             
-        pattern = re.sub(r'\\{([^}]+)\\}', r'(?P<\\1>[^/]+)', route_path)
+        pattern = re.sub(r'\{([^}]+)\}', r'(?P<\\1>[^/]+)', route_path)
         pattern = '^' + pattern + '$'
         
         match = re.match(pattern, path)
@@ -1093,6 +1100,8 @@ async def dispatch_request(method, url):
         // Custom UI Controls & Actions
         // ==========================================
 
+        let hdSyncActive = false;
+
         function setupEventListeners() {
             const playBtn = document.getElementById('play-pause-btn');
             playBtn.addEventListener('click', () => {
@@ -1123,27 +1132,44 @@ async def dispatch_request(method, url):
                 }
             });
 
-            const btnFastApi = document.getElementById('preset-fastapi');
-            const btnPandas = document.getElementById('preset-pandas');
-
-            btnFastApi.addEventListener('click', () => switchPreset('fastapi', btnFastApi, btnPandas));
-            btnPandas.addEventListener('click', () => switchPreset('pandas', btnPandas, btnFastApi));
-
-            const bypassBtn = document.getElementById('bypass-player-btn');
-            if (bypassBtn) {
-                bypassBtn.addEventListener('click', () => {
-                    if (!isMockPlayer) {
-                        if (player && typeof player.destroy === 'function') {
-                            try { player.destroy(); } catch (e) { }
+            // HD Sync Button Click Listener
+            const hdSyncBtn = document.getElementById('hd-sync-btn');
+            if (hdSyncBtn) {
+                hdSyncBtn.addEventListener('click', () => {
+                    hdSyncActive = !hdSyncActive;
+                    if (hdSyncActive) {
+                        hdSyncBtn.classList.add('active');
+                        hdSyncBtn.innerHTML = `<i data-lucide="check"></i> <span>HD Sync ON</span>`;
+                        if (terminal) {
+                            terminal.writeln(`\x1b[38;5;82m[HD Sync] 고화질 분석 싱크 모드가 활성화되었습니다. (스캔 정밀도 극대화)\x1b[0m`);
                         }
-                        player = null;
-                        setupMockPlayerFallback();
+                    } else {
+                        hdSyncBtn.classList.remove('active');
+                        hdSyncBtn.innerHTML = `<i data-lucide="sparkles"></i> <span>HD Sync ON</span>`;
+                        if (terminal) {
+                            terminal.writeln(`\x1b[38;5;244m[HD Sync] 일반 화질 싱크 모드로 전환되었습니다.\x1b[0m`);
+                        }
+                    }
+                    lucide.createIcons();
+                });
+            }
 
-                        bypassBtn.innerHTML = `<i data-lucide="check-circle"></i> 에뮬레이터 모드 활성`;
-                        bypassBtn.style.background = 'rgba(0, 230, 118, 0.08)';
-                        bypassBtn.style.borderColor = 'rgba(0, 230, 118, 0.3)';
-                        bypassBtn.style.color = '#00e676';
-                        lucide.createIcons();
+            // Language Dropdown Selection Listener
+            const langSelect = document.getElementById('language-select');
+            if (langSelect) {
+                langSelect.addEventListener('change', (e) => {
+                    const lang = e.target.value;
+                    let mode = 'python';
+                    if (lang === 'javascript') mode = 'text/javascript';
+                    else if (lang === 'c') mode = 'text/x-csrc';
+                    else if (lang === 'java') mode = 'text/x-java';
+                    
+                    if (editor) {
+                        editor.setOption('mode', mode);
+                    }
+                    if (terminal) {
+                        const langLabel = lang.toUpperCase();
+                        terminal.writeln(`\x1b[38;5;82m[System] 에디터 언어 모드가 ${langLabel}(으)로 변경되었습니다.\x1b[0m`);
                     }
                 });
             }
@@ -1169,9 +1195,7 @@ async def dispatch_request(method, url):
                     }
 
                     if (foundPresetKey) {
-                        const targetBtn = foundPresetKey === 'fastapi' ? btnFastApi : btnPandas;
-                        const otherBtn = foundPresetKey === 'fastapi' ? btnPandas : btnFastApi;
-                        switchPreset(foundPresetKey, targetBtn, otherBtn);
+                        switchPreset(foundPresetKey);
                     } else {
                         terminal.writeln(`\x1b[38;5;33m[System] 외부 강의 비디오 연동 시도: ${videoId}\x1b[0m`);
                         terminal.writeln(`\x1b[38;5;208m[System] AI OCR 스캐너가 새로운 영상을 위한 스마트 학습 타임라인을 자동 생성 중입니다...\x1b[0m`);
@@ -1205,9 +1229,6 @@ async def dispatch_request(method, url):
                                 }
                             ]
                         };
-
-                        btnFastApi.classList.remove('active');
-                        btnPandas.classList.remove('active');
 
                         currentPresetKey = 'custom';
                         lastTriggeredIdx = -1;
@@ -1278,14 +1299,11 @@ async def dispatch_request(method, url):
             });
         }
 
-        function switchPreset(key, activeBtn, inactiveBtn) {
+        function switchPreset(key) {
             if (currentPresetKey === key) return;
 
             currentPresetKey = key;
             lastTriggeredIdx = -1;
-
-            activeBtn.classList.add('active');
-            inactiveBtn.classList.remove('active');
 
             const urlInput = document.getElementById('youtube-url');
             if (key === 'fastapi') {
