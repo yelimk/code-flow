@@ -1,5 +1,5 @@
 # PowerShell Web Server for Code-Flow
-$port = 8000
+$port = 8080
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 

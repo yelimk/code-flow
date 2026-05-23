@@ -33,6 +33,8 @@ let currentPresetKey = 'fastapi';
 let lastTriggeredIdx = -1;
 let scanningActive = false;
 let timePollInterval = null;
+let lastRequestedTimestamp = -1;
+let lastRequestedVideoId = '';
 
 // Mock Player State Variables
 let isMockPlayer = false;
@@ -424,6 +426,108 @@ function onPlayerError(event) {
     setupMockPlayerFallback();
 }
 
+async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = false, showVisuals = false) {
+    if (!autoScanEnabled && !forceUpdateEditor) return;
+
+    // Prevent duplicate requests for the same video and timestamp
+    if (!forceUpdateEditor && lastRequestedVideoId === videoId && lastRequestedTimestamp === timestampSec) {
+        return;
+    }
+
+    lastRequestedVideoId = videoId;
+    lastRequestedTimestamp = timestampSec;
+
+    const overlay = document.getElementById('video-overlay');
+    const boxContainer = document.getElementById('bounding-boxes');
+    const toast = document.getElementById('ocr-toast');
+    const toastText = document.getElementById('ocr-toast-text');
+
+    // Show scan animation and logs if showVisuals is true
+    if (showVisuals) {
+        scanningActive = true;
+        if (overlay) overlay.classList.remove('hidden');
+        if (toast) {
+            toast.classList.remove('hidden');
+            toastText.innerHTML = `AI Scanner: 실시간 OCR 스캔 중... (${timestampSec}초)`;
+        }
+        if (boxContainer) boxContainer.innerHTML = '';
+    }
+
+    if (terminal) {
+        terminal.writeln(`\x1b[38;5;33m[AI Scanner] OCR 요청 전송 (영상 ID: ${videoId}, 재생 시점: ${timestampSec}초)\x1b[0m`);
+    }
+
+    try {
+        const response = await fetch('http://localhost:8000/api/sync-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                video_id: videoId,
+                timestamp_sec: timestampSec
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`서버 응답 오류 (HTTP ${response.status})`);
+        }
+
+        const data = await response.json();
+        const code = data.extracted_code || '';
+
+        // Safeguard against race conditions: Only apply if it matches the latest requested video and timestamp
+        if (videoId !== lastRequestedVideoId || timestampSec !== lastRequestedTimestamp) {
+            if (terminal) {
+                terminal.writeln(`\x1b[38;5;244m[System] 이전 요청(${timestampSec}초)의 응답을 무시합니다. (최신: ${lastRequestedTimestamp}초)\x1b[0m`);
+            }
+            return;
+        }
+
+        if (terminal) {
+            terminal.writeln(`\x1b[38;5;82m[AI Scanner] OCR 분석 성공 (캐시 히트: ${data.cached ? 'YES' : 'NO'})\x1b[0m`);
+        }
+
+        if (showVisuals && toastText) {
+            toastText.innerHTML = `<span style="color:#00e5ff;">[AI Scanner]</span> OCR 추출 완료 (캐시 ${data.cached ? '히트' : '미스'}).`;
+        }
+
+        // Update Monaco editor code
+        if (editor) {
+            if (forceUpdateEditor || !editor.hasFocus()) {
+                editor.setValue(code);
+            } else {
+                if (terminal) {
+                    terminal.writeln(`\x1b[38;5;244m[System] 사용자가 편집 중입니다. 자동 동기화를 건너뜁니다.\x1b[0m`);
+                }
+            }
+        }
+
+        // Update mock screen code element
+        const screenEl = document.getElementById('mock-screen-code');
+        if (screenEl) {
+            screenEl.innerText = code;
+        }
+
+    } catch (err) {
+        console.error("OCR API error:", err);
+        if (terminal) {
+            terminal.writeln(`\x1b[38;5;196m[AI Scanner Error] OCR 연동 실패: ${err.message}\x1b[0m`);
+        }
+        if (showVisuals && toastText) {
+            toastText.innerHTML = `<span style="color:#ff1744;">[AI Scanner]</span> OCR 연동 실패.`;
+        }
+    } finally {
+        if (showVisuals) {
+            setTimeout(() => {
+                if (overlay) overlay.classList.add('hidden');
+                if (toast) toast.classList.add('hidden');
+                scanningActive = false;
+            }, 1000);
+        }
+    }
+}
+
 function startTimeTracker() {
     if (timePollInterval) clearInterval(timePollInterval);
 
@@ -440,13 +544,18 @@ function startTimeTracker() {
         }
 
         const curTime = player.getCurrentTime();
+        const currentSec = Math.floor(curTime);
         document.getElementById('current-time').innerText = formatTime(curTime);
 
-        // Trigger Code Synchronization check
+        // Trigger Code Synchronization check via REST API
         if (autoScanEnabled && !scanningActive) {
-            checkCodeSync(curTime);
+            const activePreset = presets[currentPresetKey];
+            const videoId = activePreset ? activePreset.videoId : '';
+            if (videoId) {
+                fetchExtractedCode(videoId, currentSec, false, false);
+            }
         }
-    }, 500);
+    }, 1000);
 }
 
 function stopTimeTracker() {
@@ -487,16 +596,16 @@ function checkCodeSync(currentTime) {
 
         // If we skip backwards or jump to index 0, sync immediately without scan overlay
         if (matchIdx < prevIdx || matchIdx === 0) {
-            syncCodeEditor(matchIdx, false);
+            syncCodeEditor(matchIdx, false, false);
         } else {
             // Trigger laser scanning visual overlay
-            triggerOcrScanAnimation(matchIdx);
+            triggerOcrScanAnimation(matchIdx, false);
         }
     }
 }
 
 // Trigger Visual AI Scanning Overlays (Bounding boxes & Lasers)
-function triggerOcrScanAnimation(index) {
+function triggerOcrScanAnimation(index, force = false) {
     scanningActive = true;
 
     const overlay = document.getElementById('video-overlay');
@@ -541,7 +650,7 @@ function triggerOcrScanAnimation(index) {
 
     // 5. Inject Code, hide laser, and update timeline at 2.8s
     setTimeout(() => {
-        syncCodeEditor(index, true);
+        syncCodeEditor(index, true, force);
 
         // Hide Scan Overlays
         overlay.classList.add('hidden');
@@ -551,19 +660,21 @@ function triggerOcrScanAnimation(index) {
 }
 
 // Sync Editor Code and Update Timeline List
-function syncCodeEditor(index, animate = false) {
+function syncCodeEditor(index, animate = false, force = false) {
     const item = presets[currentPresetKey].timeline[index];
     if (!item) return;
 
     // Update Monaco editor code
     if (editor) {
-        editor.setValue(item.code);
+        if (force || !editor.hasFocus()) {
+            editor.setValue(item.code);
 
-        // Optional quick line highlighting highlight trigger
-        if (animate) {
-            const lineCount = editor.getModel().getLineCount();
-            editor.revealLine(lineCount);
-            // Flash notification in editor if needed
+            // Optional quick line highlighting highlight trigger
+            if (animate) {
+                const lineCount = editor.getModel().getLineCount();
+                editor.revealLine(lineCount);
+                // Flash notification in editor if needed
+            }
         }
     }
 
@@ -585,6 +696,7 @@ function syncCodeEditor(index, animate = false) {
 
 function renderTimeline() {
     const timelineList = document.getElementById('timeline-list');
+    if (!timelineList) return;
     timelineList.innerHTML = '';
 
     const activePreset = presets[currentPresetKey];
@@ -627,8 +739,11 @@ function renderTimeline() {
                 // Immediately synchronize content (bypass time polling delays)
                 lastTriggeredIdx = idx;
 
-                // Quick trigger: Show flash scan visual to feel interactive
-                triggerOcrScanAnimation(idx);
+                const activePreset = presets[currentPresetKey];
+                const videoId = activePreset ? activePreset.videoId : '';
+                if (videoId) {
+                    fetchExtractedCode(videoId, item.time, true, true);
+                }
             }
         });
 
@@ -1111,7 +1226,7 @@ function setupMockPlayerFallback() {
         seekTo: (sec, allowSeekAhead) => {
             mockCurrentTime = Math.min(sec, mockDuration);
             document.getElementById('current-time').innerText = formatTime(mockCurrentTime);
-            updateMockScreenCode();
+            updateMockScreenCode(true);
         },
         playVideo: () => {
             mockPlayerState = 1;
@@ -1158,7 +1273,7 @@ function setupMockPlayerFallback() {
     updateMockScreenCode();
 }
 
-function updateMockScreenCode() {
+function updateMockScreenCode(force = false) {
     const screenEl = document.getElementById('mock-screen-code');
     if (!screenEl) return;
 
@@ -1173,4 +1288,10 @@ function updateMockScreenCode() {
 
     const code = timeline[matchIdx].code;
     screenEl.innerText = code;
+
+    if (editor) {
+        if (force || !editor.hasFocus()) {
+            editor.setValue(code);
+        }
+    }
 }
