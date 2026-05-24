@@ -389,11 +389,15 @@ function onPlayerError(event) {
 async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = false, showVisuals = false) {
     if (!autoScanEnabled && !forceUpdateEditor) return;
 
+    // If a scan is already running and this is a periodic scan (not forced), skip it
+    if (scanningActive && !forceUpdateEditor) return;
+
     // Prevent duplicate requests for the same video and timestamp
     if (!forceUpdateEditor && lastRequestedVideoId === videoId && lastRequestedTimestamp === timestampSec) {
         return;
     }
 
+    scanningActive = true;
     lastRequestedVideoId = videoId;
     lastRequestedTimestamp = timestampSec;
 
@@ -404,7 +408,6 @@ async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = fal
 
     // Show scan animation and logs if showVisuals is true
     if (showVisuals) {
-        scanningActive = true;
         if (overlay) overlay.classList.remove('hidden');
         if (toast) {
             toast.classList.remove('hidden');
@@ -445,7 +448,11 @@ async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = fal
         }
 
         if (terminal) {
-            terminal.writeln(`\x1b[38;5;82m[AI Scanner] OCR 분석 성공 (캐시 히트: ${data.cached ? 'YES' : 'NO'})\x1b[0m`);
+            if (data.cached) {
+                terminal.writeln(`\x1b[38;5;82m[AI Scanner] OCR 분석 성공 (캐시 히트: YES, 이번 달 누적 사용량: ${data.google_api_usage_count || 0}건 / 1000건)\x1b[0m`);
+            } else {
+                terminal.writeln(`\x1b[38;5;82m[AI Scanner] 구글 API 호출 성공! (이번 달 누적 사용량: ${data.google_api_usage_count || 0}건 / 1000건)\x1b[0m`);
+            }
         }
 
         if (showVisuals && toastText) {
@@ -474,9 +481,28 @@ async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = fal
         console.error("OCR API error:", err);
         if (terminal) {
             terminal.writeln(`\x1b[38;5;196m[AI Scanner Error] OCR 연동 실패: ${err.message}\x1b[0m`);
+            terminal.writeln(`\x1b[38;5;244m[System] 로컬 프리셋 코드로 대체 동기화를 수행합니다.\x1b[0m`);
         }
         if (showVisuals && toastText) {
-            toastText.innerHTML = `<span style="color:#ff1744;">[AI Scanner]</span> OCR 연동 실패.`;
+            toastText.innerHTML = `<span style="color:#ff1744;">[AI Scanner]</span> OCR 연동 실패. 로컬 프리셋 대체.`;
+        }
+
+        // Fallback: update editor with local preset code
+        const activePreset = presets[currentPresetKey];
+        if (activePreset && activePreset.timeline) {
+            let matchIdx = 0;
+            for (let i = 0; i < activePreset.timeline.length; i++) {
+                if (timestampSec >= activePreset.timeline[i].time) {
+                    matchIdx = i;
+                }
+            }
+            const fallbackCode = activePreset.timeline[matchIdx].code;
+            if (editor) {
+                if (forceUpdateEditor || !editor.hasFocus()) {
+                    editor.setValue(fallbackCode);
+                    window.capturedCode = fallbackCode;
+                }
+            }
         }
     } finally {
         if (showVisuals) {
@@ -485,6 +511,8 @@ async function fetchExtractedCode(videoId, timestampSec, forceUpdateEditor = fal
                 if (toast) toast.classList.add('hidden');
                 scanningActive = false;
             }, 1000);
+        } else {
+            scanningActive = false;
         }
     }
 }
@@ -507,7 +535,7 @@ function startTimeTracker() {
         const currentSec = Math.floor(curTime);
         document.getElementById('current-time').innerText = formatTime(curTime);
 
-        if (autoScanEnabled && !scanningActive) {
+        if (autoScanEnabled && !scanningActive && !isMockPlayer && (currentSec % 5 === 0)) {
             const activePreset = presets[currentPresetKey];
             const videoId = activePreset ? activePreset.videoId : '';
             if (videoId) {
@@ -681,7 +709,12 @@ function renderTimeline() {
                 const activePreset = presets[currentPresetKey];
                 const videoId = activePreset ? activePreset.videoId : '';
                 if (videoId) {
-                    fetchExtractedCode(videoId, item.time, true, true);
+                    if (isMockPlayer) {
+                        // In mock player mode, sync editor using local preset code directly
+                        syncCodeEditor(idx, true, true);
+                    } else {
+                        fetchExtractedCode(videoId, item.time, true, true);
+                    }
                 }
             }
         });

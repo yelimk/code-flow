@@ -2,3 +2,6 @@
 .vscode/
 *.log
 .env
+gcp-key.json
+*-key.json
+*credentials*.json
