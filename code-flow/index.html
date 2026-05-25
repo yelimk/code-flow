@@ -21,9 +21,8 @@
     <!-- Lucide Icons (ISC/MIT License) -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- CodeMirror CSS & Theme (MIT License, CORS-safe for file:// local origin) -->
+    <!-- CodeMirror CSS (MIT License, CORS-safe for file:// local origin) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css" />
 
     <!-- CodeMirror Core & Modes (MIT License) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
@@ -72,12 +71,20 @@
                     </div>
                     <div class="video-container-wrapper">
                         <!-- YouTube IFrame Player -->
-                        <div id="youtube-player"></div>
+                        <div id="youtube-player" class="mock-player-container">
+                            <div class="mock-video-display">
+                                <i data-lucide="video" class="mock-video-icon"></i>
+                                <h3 class="mock-video-title">동영상 학습 영역</h3>
+                                <p class="mock-video-subtitle">
+                                    상단 입력창에 공부하고 싶은 유튜브 코딩 강의 링크를 넣고 [강의 연동] 버튼을 눌러보세요!<br>
+                                    오른쪽 에디터가 영상 속 코드를 자동으로 실시간 스캔하여 똑같이 받아 적어줍니다.
+                                </p>
+                            </div>
+                        </div>
 
                         <!-- AI Scan Overlay -->
                         <div id="video-overlay" class="video-overlay hidden">
                             <div class="laser-beam"></div>
-                            <div id="bounding-boxes" class="bounding-boxes-container"></div>
                             <div id="ocr-toast" class="ocr-toast hidden">
                                 <i data-lucide="sparkles" class="toast-sparkle"></i>
                                 <span id="ocr-toast-text">AI Scanner: 화면 변경 감지. OCR 스캔 중...</span>
@@ -95,13 +102,7 @@
                             <span id="duration-time">00:00</span>
                         </div>
 
-                        <div class="hd-sync-container">
-                            <span class="hd-sync-text">고화질 영상일수록 코드 동기화 정확도가 향상됩니다.</span>
-                            <button id="hd-sync-btn" class="hd-sync-btn" title="고화질 코드 싱크 활성화">
-                                <i data-lucide="sparkles"></i>
-                                <span>HD Sync ON</span>
-                            </button>
-                        </div>
+
 
                         <div class="scan-toggle-container">
                             <span class="scan-label">실시간 AI 자동 스캔</span>
@@ -130,9 +131,9 @@
                                 <i data-lucide="chevron-down" class="dropdown-arrow"></i>
                                 <select id="language-select">
                                     <option value="python">Python</option>
-                                    <option value="javascript">JavaScript</option>
-                                    <option value="java">Java</option>
                                     <option value="c">C</option>
+                                    <option value="cpp">C++</option>
+                                    <option value="java">Java</option>
                                 </select>
                             </div>
                             <button id="save-btn" class="icon-btn" title="파일로 저장">
@@ -249,58 +250,31 @@
                 videoId: 'k_I82a2tJpI',
                 title: 'FastAPI 기초 강의',
                 language: 'python',
-                defaultCode: `# FastAPI 기초 강의 실습 파일\n# '자동 스캔: ON' 상태로 영상을 재생하거나 아래 타임라인을 클릭하세요.\n`,
+                defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
                 timeline: [
                     {
                         time: 0,
-                        label: '1. FastAPI 인트로덕션',
-                        code: `# FastAPI 기초 강의 실습 파일\n# '자동 스캔: ON' 상태로 영상을 재생하거나 아래 타임라인을 클릭하세요.\n`,
-                        boxes: []
+                        code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
                     },
                     {
                         time: 15,
-                        label: '2. FastAPI 라이브러리 임포트',
-                        code: `from fastapi import FastAPI\n\n# app 객체 생성 예정\n`,
-                        boxes: [
-                            { x: 10, y: 15, w: 42, h: 8, label: 'Imports' }
-                        ]
+                        code: `from fastapi import FastAPI\n\n# app 객체 생성 예정\n`
                     },
                     {
                         time: 45,
-                        label: '3. FastAPI app 인스턴스 생성',
-                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n`,
-                        boxes: [
-                            { x: 10, y: 15, w: 42, h: 8, label: 'Imports' },
-                            { x: 10, y: 26, w: 25, h: 8, label: 'App Initialization' }
-                        ]
+                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n`
                     },
                     {
                         time: 90,
-                        label: '4. 기본 GET 라우터 작성',
-                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"message": "Hello World"}\n`,
-                        boxes: [
-                            { x: 10, y: 15, w: 42, h: 8, label: 'Imports' },
-                            { x: 10, y: 26, w: 25, h: 8, label: 'App Initialization' },
-                            { x: 10, y: 38, w: 55, h: 28, label: 'GET API Router' }
-                        ]
+                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"message": "Hello World"}\n`
                     },
                     {
                         time: 150,
-                        label: '5. 경로 매개변수 (Path Params) 추가',
-                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"message": "Hello World"}\n\n@app.get("/items/{item_id}")\ndef read_item(item_id: int, q: str = None):\n    return {"item_id": item_id, "q": q}\n`,
-                        boxes: [
-                            { x: 10, y: 38, w: 55, h: 28, label: 'GET API Router' },
-                            { x: 10, y: 70, w: 75, h: 25, label: 'Path parameter API' }
-                        ]
+                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"message": "Hello World"}\n\n@app.get("/items/{item_id}")\ndef read_item(item_id: int, q: str = None):\n    return {"item_id": item_id, "q": q}\n`
                     },
                     {
                         time: 210,
-                        label: '6. Uvicorn 로컬 실행 엔트리포인트',
-                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"message": "Hello World"}\n\n@app.get("/items/{item_id}")\ndef read_item(item_id: int, q: str = None):\n    return {"item_id": item_id, "q": q}\n\nif __name__ == "__main__":\n    import uvicorn\n    uvicorn.run(app, host="127.0.0.1", port=8000)\n`,
-                        boxes: [
-                            { x: 10, y: 70, w: 75, h: 25, label: 'Path parameter API' },
-                            { x: 10, y: 100, w: 80, h: 20, label: 'Main Run Script' }
-                        ]
+                        code: `from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"message": "Hello World"}\n\n@app.get("/items/{item_id}")\ndef read_item(item_id: int, q: str = None):\n    return {"item_id": item_id, "q": q}\n\nif __name__ == "__main__":\n    import uvicorn\n    uvicorn.run(app, host="127.0.0.1", port=8000)\n`
                     }
                 ]
             },
@@ -308,41 +282,23 @@
                 videoId: 'l8D1wT6s0Wk',
                 title: 'Pandas 데이터 분석 기초',
                 language: 'python',
-                defaultCode: `# Pandas 데이터 분석 실습 파일\n# '자동 스캔: ON' 상태로 영상을 재생하거나 아래 타임라인을 클릭하세요.\n`,
+                defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
                 timeline: [
                     {
                         time: 0,
-                        label: '1. Pandas 시작하기',
-                        code: `# Pandas 데이터 분석 실습 파일\n# '자동 스캔: ON' 상태로 영상을 재생하거나 아래 타임라인을 클릭하세요.\nimport pandas as pd\n`,
-                        boxes: []
+                        code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
                     },
                     {
                         time: 20,
-                        label: '2. 데이터프레임 구조 생성',
-                        code: `import pandas as pd\n\ndata = {\n    'Name': ['Alice', 'Bob', 'Charlie', 'David'],\n    'Age': [25, 30, 35, 28],\n    'City': ['New York', 'London', 'Paris', 'London']\n}\ndf = pd.DataFrame(data)\nprint("--- Raw DataFrame ---")\nprint(df)\n`,
-                        boxes: [
-                            { x: 12, y: 10, w: 35, h: 8, label: 'Import' },
-                            { x: 12, y: 22, w: 65, h: 42, label: 'Dict Data structure' },
-                            { x: 12, y: 68, w: 55, h: 20, label: 'DataFrame creation' }
-                        ]
+                        code: `import pandas as pd\n\ndata = {\n    'Name': ['Alice', 'Bob', 'Charlie', 'David'],\n    'Age': [25, 30, 35, 28],\n    'City': ['New York', 'London', 'Paris', 'London']\n}\ndf = pd.DataFrame(data)\nprint("--- Raw DataFrame ---")\nprint(df)\n`
                     },
                     {
                         time: 80,
-                        label: '3. 조건 필터링 (나이 > 28)',
-                        code: `import pandas as pd\n\ndata = {\n    'Name': ['Alice', 'Bob', 'Charlie', 'David'],\n    'Age': [25, 30, 35, 28],\n    'City': ['New York', 'London', 'Paris', 'London']\n}\ndf = pd.DataFrame(data)\n\n# 나이가 28세를 초과하는 데이터 필터링\nfiltered_df = df[df['Age'] > 28]\nprint("\\n--- 28세 초과 데이터 ---")\nprint(filtered_df)\n`,
-                        boxes: [
-                            { x: 12, y: 68, w: 55, h: 20, label: 'DataFrame creation' },
-                            { x: 12, y: 92, w: 72, h: 22, label: 'Conditional Filter' }
-                        ]
+                        code: `import pandas as pd\n\ndata = {\n    'Name': ['Alice', 'Bob', 'Charlie', 'David'],\n    'Age': [25, 30, 35, 28],\n    'City': ['New York', 'London', 'Paris', 'London']\n}\ndf = pd.DataFrame(data)\n\n# 나이가 28세를 초과하는 데이터 필터링\nfiltered_df = df[df['Age'] > 28]\nprint("\\n--- 28세 초과 데이터 ---")\nprint(filtered_df)\n`
                     },
                     {
                         time: 160,
-                        label: '4. 그룹별 집계 (도시별 나이 평균)',
-                        code: `import pandas as pd\n\ndata = {\n    'Name': ['Alice', 'Bob', 'Charlie', 'David'],\n    'Age': [25, 30, 35, 28],\n    'City': ['New York', 'London', 'Paris', 'London']\n}\ndf = pd.DataFrame(data)\n\n# 도시별 나이의 평균값 산출\ngrouped = df.groupby('City')['Age'].mean()\nprint("\\n--- 도시별 평균 나이 ---")\nprint(grouped)\n`,
-                        boxes: [
-                            { x: 12, y: 92, w: 72, h: 22, label: 'Conditional Filter' },
-                            { x: 12, y: 118, w: 78, h: 20, label: 'Groupby Aggregation' }
-                        ]
+                        code: `import pandas as pd\n\ndata = {\n    'Name': ['Alice', 'Bob', 'Charlie', 'David'],\n    'Age': [25, 30, 35, 28],\n    'City': ['New York', 'London', 'Paris', 'London']\n}\ndf = pd.DataFrame(data)\n\n# 도시별 나이의 평균값 산출\ngrouped = df.groupby('City')['Age'].mean()\nprint("\\n--- 도시별 평균 나이 ---")\nprint(grouped)\n`
                     }
                 ]
             }
@@ -367,9 +323,6 @@
 
             // Setup UI Action Event Listeners
             setupEventListeners();
-
-            // Render initial timeline
-            renderTimeline();
 
             // If YouTube API loaded before, initialize player directly
             if (window.YT && window.YT.Player) {
@@ -432,7 +385,7 @@
             editor = CodeMirror(container, {
                 value: initialCode,
                 mode: 'python',
-                theme: 'dracula',
+                theme: 'vscode-dark',
                 lineNumbers: true,
                 indentUnit: 4,
                 tabSize: 4,
@@ -441,8 +394,17 @@
             });
 
             // Real-time captured variable update on editor edits (F-02 Glue code requirement)
+            let syntaxTimeout = null;
             editor.on('change', (cm) => {
                 window.capturedCode = cm.getValue();
+
+                if (syntaxTimeout) clearTimeout(syntaxTimeout);
+                syntaxTimeout = setTimeout(() => {
+                    const selectedLang = document.getElementById('language-select').value;
+                    if (selectedLang === 'python') {
+                        performSyntaxCheck();
+                    }
+                }, 500);
             });
             window.capturedCode = initialCode;
         }
@@ -540,9 +502,83 @@
                     text.innerText = 'Sandbox: Python WASM Ready';
                 }
 
+                // Register helper function in Python for syntax checking
+                await pyodide.runPythonAsync(`
+import json
+def __check_syntax__(code):
+    try:
+        compile(code, "<editor>", "exec")
+        return json.dumps({"status": "ok"})
+    except SyntaxError as e:
+        return json.dumps({
+            "status": "error",
+            "msg": e.msg,
+            "lineno": e.lineno,
+            "offset": e.offset
+        })
+    except Exception as e:
+        return json.dumps({
+            "status": "error",
+            "msg": str(e),
+            "lineno": 1,
+            "offset": 1
+        })
+`);
+
+                // Initial check after loading pyodide
+                setTimeout(() => {
+                    const selectedLang = document.getElementById('language-select').value;
+                    if (selectedLang === 'python') {
+                        performSyntaxCheck();
+                    }
+                }, 100);
+
             } catch (error) {
                 terminal.writeln('\x1b[38;5;196m[System] Pyodide 파이썬 엔진 로드 실패. 브라우저가 오프라인이거나 CDN 오류일 수 있습니다.\x1b[0m');
                 console.error('Pyodide Error:', error);
+            }
+        }
+
+        window.syntaxMarkers = [];
+
+        async function performSyntaxCheck() {
+            if (!pyodide || !editor) return;
+
+            // Clear existing markers
+            if (window.syntaxMarkers) {
+                window.syntaxMarkers.forEach(m => m.clear());
+            }
+            window.syntaxMarkers = [];
+
+            const code = editor.getValue();
+            if (!code.trim()) return;
+
+            try {
+                // Pass code safely to Python globals
+                pyodide.globals.set("temp_code_to_check", code);
+                const resultJson = await pyodide.runPythonAsync(`__check_syntax__(temp_code_to_check)`);
+                const result = JSON.parse(resultJson);
+
+                if (result.status === "error") {
+                    const line = result.lineno - 1; // 0-indexed in CodeMirror
+                    const offset = result.offset ? result.offset - 1 : 0;
+                    
+                    const lineContent = editor.getLine(line) || "";
+                    const startCh = Math.max(0, offset - 1);
+                    const endCh = lineContent.length || 1;
+
+                    const marker = editor.markText(
+                        { line: line, ch: startCh },
+                        { line: line, ch: endCh },
+                        { 
+                            className: "cm-syntax-error",
+                            title: result.msg // Tooltip on hover
+                        }
+                    );
+                    window.syntaxMarkers.push(marker);
+                }
+            } catch (err) {
+                console.error("Syntax checker execution failed:", err);
             }
         }
 
@@ -621,7 +657,6 @@
             lastRequestedTimestamp = timestampSec;
 
             const overlay = document.getElementById('video-overlay');
-            const boxContainer = document.getElementById('bounding-boxes');
             const toast = document.getElementById('ocr-toast');
             const toastText = document.getElementById('ocr-toast-text');
 
@@ -632,7 +667,6 @@
                     toast.classList.remove('hidden');
                     toastText.innerHTML = `AI Scanner: 실시간 OCR 스캔 중... (${timestampSec}초)`;
                 }
-                if (boxContainer) boxContainer.innerHTML = '';
             }
 
             if (terminal) {
@@ -777,172 +811,7 @@
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        // ==========================================
-        // Code Scan & Synchronizer Module
-        // ==========================================
 
-        function checkCodeSync(currentTime) {
-            const activePreset = presets[currentPresetKey];
-            const timeline = activePreset.timeline;
-
-            let matchIdx = -1;
-            for (let i = 0; i < timeline.length; i++) {
-                if (currentTime >= timeline[i].time) {
-                    matchIdx = i;
-                }
-            }
-
-            if (matchIdx !== -1 && matchIdx !== lastTriggeredIdx) {
-                const prevIdx = lastTriggeredIdx;
-                lastTriggeredIdx = matchIdx;
-
-                if (matchIdx < prevIdx || matchIdx === 0) {
-                    syncCodeEditor(matchIdx, false, false);
-                } else {
-                    triggerOcrScanAnimation(matchIdx, false);
-                }
-            }
-        }
-
-        function triggerOcrScanAnimation(index, force = false) {
-            scanningActive = true;
-
-            const overlay = document.getElementById('video-overlay');
-            const boxContainer = document.getElementById('bounding-boxes');
-            const toast = document.getElementById('ocr-toast');
-            const toastText = document.getElementById('ocr-toast-text');
-
-            overlay.classList.remove('hidden');
-            toast.classList.remove('hidden');
-            boxContainer.innerHTML = '';
-
-            toastText.innerHTML = `AI Scanner: 화면 변경 감지. OCR 프레임 분석 중...`;
-
-            setTimeout(() => {
-                const item = presets[currentPresetKey].timeline[index];
-                if (item.boxes && item.boxes.length > 0) {
-                    item.boxes.forEach(box => {
-                        const boxEl = document.createElement('div');
-                        boxEl.className = 'bounding-box';
-                        boxEl.style.left = box.x + '%';
-                        boxEl.style.top = box.y + '%';
-                        boxEl.style.width = box.w + '%';
-                        boxEl.style.height = box.h + '%';
-
-                        const label = document.createElement('span');
-                        label.className = 'bounding-box-label';
-                        label.innerText = box.label;
-                        boxEl.appendChild(label);
-
-                        boxContainer.appendChild(boxEl);
-                    });
-                }
-            }, 600);
-
-            setTimeout(() => {
-                toastText.innerHTML = `<span style="color:#00e5ff;">[LLM 보정]</span> 텍스트 오류 복구 및 코드 들여쓰기 교정 완료.`;
-            }, 1800);
-
-            setTimeout(() => {
-                syncCodeEditor(index, true, force);
-
-                overlay.classList.add('hidden');
-                toast.classList.add('hidden');
-                scanningActive = false;
-            }, 3000);
-        }
-
-        function syncCodeEditor(index, animate = false, force = false) {
-            const item = presets[currentPresetKey].timeline[index];
-            if (!item) return;
-
-            if (editor) {
-                if (force || !editor.hasFocus()) {
-                    editor.setValue(item.code);
-                    window.capturedCode = item.code; // Sync captured variable
-
-                    if (animate) {
-                        if (typeof editor.lineCount === 'function') {
-                            const lineCount = editor.lineCount();
-                            editor.scrollIntoView({ line: lineCount - 1, ch: 0 });
-                        }
-                    }
-                }
-            }
-
-            const items = document.querySelectorAll('.timeline-item');
-            items.forEach((el, idx) => {
-                if (idx === index) {
-                    el.classList.add('active');
-                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } else {
-                    el.classList.remove('active');
-                }
-            });
-        }
-
-        // ==========================================
-        // Smart Timeline Module
-        // ==========================================
-
-        function renderTimeline() {
-            const timelineList = document.getElementById('timeline-list');
-            if (!timelineList) return;
-            timelineList.innerHTML = '';
-
-            const activePreset = presets[currentPresetKey];
-
-            activePreset.timeline.forEach((item, idx) => {
-                const itemEl = document.createElement('div');
-                itemEl.className = `timeline-item ${idx === 0 ? 'active' : ''}`;
-
-                const timeStr = formatTime(item.time);
-
-                let snippet = '';
-                const lines = item.code.split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#'));
-                if (lines.length > 0) {
-                    snippet = lines[0].substring(0, 40) + (lines[0].length > 40 ? '...' : '');
-                } else {
-                    snippet = '실습 환경 초기화';
-                }
-
-                itemEl.innerHTML = `
-                    <div class="timeline-time">${timeStr}</div>
-                    <div class="timeline-content">
-                        <span class="timeline-item-title">${item.label}</span>
-                        <span class="timeline-item-subtitle">${snippet}</span>
-                    </div>
-                    <i data-lucide="play-circle" class="timeline-play-indicator"></i>
-                `;
-
-                itemEl.addEventListener('click', () => {
-                    if (player && typeof player.seekTo === 'function') {
-                        player.seekTo(item.time, true);
-
-                        if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
-                            player.playVideo();
-                        }
-
-                        lastTriggeredIdx = idx;
-                        
-                        const activePreset = presets[currentPresetKey];
-                        const videoId = activePreset ? activePreset.videoId : '';
-                        if (videoId) {
-                            if (isMockPlayer) {
-                                // In mock player mode, sync editor using local preset code directly
-                                syncCodeEditor(idx, true, true);
-                            } else {
-                                fetchExtractedCode(videoId, item.time, true, true);
-                            }
-                        }
-                    }
-                });
-
-                timelineList.appendChild(itemEl);
-            });
-
-            lucide.createIcons();
-        }
 
         // ==========================================
         // Code Runner Sandbox Engine
@@ -954,9 +823,9 @@
                 if (terminal) {
                     terminal.clear();
                     const displayNames = {
-                        'javascript': 'JavaScript',
-                        'java': 'Java',
-                        'c': 'C'
+                        'c': 'C',
+                        'cpp': 'C++',
+                        'java': 'Java'
                     };
                     const displayName = displayNames[selectedLang] || selectedLang;
                     terminal.writeln(`\x1b[38;5;208m[실행 미지원]\x1b[0m 현재 브라우저 샌드박스는 \x1b[1mPython\x1b[0m 언어 실행만 완벽하게 지원합니다.`);
@@ -1133,8 +1002,6 @@ async def dispatch_request(method, url):
         // Custom UI Controls & Actions
         // ==========================================
 
-        let hdSyncActive = false;
-
         function setupEventListeners() {
             const playBtn = document.getElementById('play-pause-btn');
             playBtn.addEventListener('click', () => {
@@ -1165,36 +1032,14 @@ async def dispatch_request(method, url):
                 }
             });
 
-            // HD Sync Button Click Listener
-            const hdSyncBtn = document.getElementById('hd-sync-btn');
-            if (hdSyncBtn) {
-                hdSyncBtn.addEventListener('click', () => {
-                    hdSyncActive = !hdSyncActive;
-                    if (hdSyncActive) {
-                        hdSyncBtn.classList.add('active');
-                        hdSyncBtn.innerHTML = `<i data-lucide="check"></i> <span>HD Sync ON</span>`;
-                        if (terminal) {
-                            terminal.writeln(`\x1b[38;5;82m[HD Sync] 고화질 분석 싱크 모드가 활성화되었습니다. (스캔 정밀도 극대화)\x1b[0m`);
-                        }
-                    } else {
-                        hdSyncBtn.classList.remove('active');
-                        hdSyncBtn.innerHTML = `<i data-lucide="sparkles"></i> <span>HD Sync ON</span>`;
-                        if (terminal) {
-                            terminal.writeln(`\x1b[38;5;244m[HD Sync] 일반 화질 싱크 모드로 전환되었습니다.\x1b[0m`);
-                        }
-                    }
-                    lucide.createIcons();
-                });
-            }
-
             // Language Dropdown Selection Listener
             const langSelect = document.getElementById('language-select');
             if (langSelect) {
                 langSelect.addEventListener('change', (e) => {
                     const lang = e.target.value;
                     let mode = 'python';
-                    if (lang === 'javascript') mode = 'text/javascript';
-                    else if (lang === 'c') mode = 'text/x-csrc';
+                    if (lang === 'c') mode = 'text/x-csrc';
+                    else if (lang === 'cpp') mode = 'text/x-c++src';
                     else if (lang === 'java') mode = 'text/x-java';
                     
                     if (editor) {
@@ -1203,6 +1048,14 @@ async def dispatch_request(method, url):
                     if (terminal) {
                         const langLabel = lang.toUpperCase();
                         terminal.writeln(`\x1b[38;5;82m[System] 에디터 언어 모드가 ${langLabel}(으)로 변경되었습니다.\x1b[0m`);
+                    }
+
+                    // Clear syntax markers if not python, or recheck if python
+                    if (lang !== 'python' && window.syntaxMarkers) {
+                        window.syntaxMarkers.forEach(m => m.clear());
+                        window.syntaxMarkers = [];
+                    } else if (lang === 'python') {
+                        performSyntaxCheck();
                     }
                 });
             }
@@ -1237,28 +1090,19 @@ async def dispatch_request(method, url):
                             videoId: videoId,
                             title: '외부 유튜브 강의 실습',
                             language: 'python',
-                            defaultCode: `# 외부 연동 비디오 실습 파일\n# 이 영상에 맞춘 AI 학습 가이드 코드가 작성됩니다.\n`,
+                            defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
                             timeline: [
                                 {
                                     time: 0,
-                                    label: '1. 코드 분석 스캔 준비',
-                                    code: `# 외부 연동 동영상 실습 환경\n# 재생하면 비디오 내용의 코드 프레임이 감지되어 실시간 주입됩니다.\n`,
-                                    boxes: []
+                                    code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
                                 },
                                 {
                                     time: 10,
-                                    label: '2. 모듈 임포트 단계',
-                                    code: `import math\nimport os\n\nprint("External environment initialized")\n`,
-                                    boxes: [{ x: 15, y: 15, w: 40, h: 10, label: 'Imports' }]
+                                    code: `import math\nimport os\n\nprint("External environment initialized")\n`
                                 },
                                 {
                                     time: 30,
-                                    label: '3. 코딩 예제 구현',
-                                    code: `import math\nimport os\n\ndef calculate_sphere_volume(radius):\n    # 구의 부피 계산 함수\n    volume = (4/3) * math.pi * (radius ** 3)\n    return volume\n\nr = 5\nvol = calculate_sphere_volume(r)\nprint(f"반지름 {r}인 구의 부피: {vol:.2f}")\n`,
-                                    boxes: [
-                                        { x: 15, y: 15, w: 40, h: 10, label: 'Imports' },
-                                        { x: 15, y: 30, w: 75, h: 30, label: 'Function definition' }
-                                    ]
+                                    code: `import math\nimport os\n\ndef calculate_sphere_volume(radius):\n    # 구의 부피 계산 함수\n    volume = (4/3) * math.pi * (radius ** 3)\n    return volume\n\nr = 5\nvol = calculate_sphere_volume(r)\nprint(f"반지름 {r}인 구의 부피: {vol:.2f}")\n`
                                 }
                             ]
                         };
@@ -1273,8 +1117,6 @@ async def dispatch_request(method, url):
                         } else {
                             initYouTubePlayer();
                         }
-
-                        renderTimeline();
 
                         if (editor) {
                             editor.setValue(presets['custom'].defaultCode);
@@ -1353,8 +1195,6 @@ async def dispatch_request(method, url):
                 initYouTubePlayer();
             }
 
-            renderTimeline();
-
             if (editor) {
                 editor.setValue(presets[key].defaultCode);
                 window.capturedCode = presets[key].defaultCode; // Sync captured variable
@@ -1420,11 +1260,11 @@ async def dispatch_request(method, url):
                     <div class="mock-video-display">
                         <div class="mock-video-glow"></div>
                         <i data-lucide="video-off" class="mock-video-icon"></i>
-                        <h3 class="mock-video-title">YouTube 로컬 보안 우회 모드</h3>
-                        <p class="mock-video-subtitle">실시간 비디오 에뮬레이션 활성화 (FastAPI 기초)</p>
-                        <div class="mock-screen-content">
-                            <pre id="mock-screen-code"># AI 스캐너 분석 화면\\n# 동영상을 재생하면 실시간으로 코드가 분석됩니다.</pre>
-                        </div>
+                        <h3 class="mock-video-title">비디오 에뮬레이션 플레이어 활성화 완료 🎬</h3>
+                        <p class="mock-video-subtitle">
+                            상단 입력창에 공부하고 싶은 유튜브 코딩 강의 링크를 넣고 [강의 연동] 버튼을 눌러보세요!<br>
+                            오른쪽 에디터가 영상 속 코드를 자동으로 실시간 스캔하여 똑같이 받아 적어줍니다.
+                        </p>
                     </div>
                 </div>
             `;
@@ -1478,7 +1318,6 @@ async def dispatch_request(method, url):
             mockDuration = activePreset.timeline[activePreset.timeline.length - 1].time + 60;
             document.getElementById('duration-time').innerText = formatTime(mockDuration);
 
-            renderTimeline();
             updateMockScreenCode();
         }
 
