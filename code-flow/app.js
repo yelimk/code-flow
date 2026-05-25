@@ -172,9 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup UI Action Event Listeners
     setupEventListeners();
 
-    // Render initial timeline
-    renderTimeline();
-
     // If YouTube API loaded before, initialize player directly
     if (window.YT && window.YT.Player) {
         initYouTubePlayer();
@@ -227,6 +224,7 @@ function initCodeMirrorEditor() {
     editor = CodeMirror(container, {
         value: initialCode,
         mode: 'python',
+        theme: 'vscode-dark',
         lineNumbers: true,
         indentUnit: 4,
         tabSize: 4,
@@ -558,172 +556,7 @@ function formatTime(sec) {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// ==========================================
-// Code Scan & Synchronizer Module
-// ==========================================
 
-function checkCodeSync(currentTime) {
-    const activePreset = presets[currentPresetKey];
-    const timeline = activePreset.timeline;
-
-    let matchIdx = -1;
-    for (let i = 0; i < timeline.length; i++) {
-        if (currentTime >= timeline[i].time) {
-            matchIdx = i;
-        }
-    }
-
-    if (matchIdx !== -1 && matchIdx !== lastTriggeredIdx) {
-        const prevIdx = lastTriggeredIdx;
-        lastTriggeredIdx = matchIdx;
-
-        if (matchIdx < prevIdx || matchIdx === 0) {
-            syncCodeEditor(matchIdx, false, false);
-        } else {
-            triggerOcrScanAnimation(matchIdx, false);
-        }
-    }
-}
-
-function triggerOcrScanAnimation(index, force = false) {
-    scanningActive = true;
-
-    const overlay = document.getElementById('video-overlay');
-    const boxContainer = document.getElementById('bounding-boxes');
-    const toast = document.getElementById('ocr-toast');
-    const toastText = document.getElementById('ocr-toast-text');
-
-    overlay.classList.remove('hidden');
-    toast.classList.remove('hidden');
-    boxContainer.innerHTML = '';
-
-    toastText.innerHTML = `AI Scanner: 화면 변경 감지. OCR 프레임 분석 중...`;
-
-    setTimeout(() => {
-        const item = presets[currentPresetKey].timeline[index];
-        if (item.boxes && item.boxes.length > 0) {
-            item.boxes.forEach(box => {
-                const boxEl = document.createElement('div');
-                boxEl.className = 'bounding-box';
-                boxEl.style.left = box.x + '%';
-                boxEl.style.top = box.y + '%';
-                boxEl.style.width = box.w + '%';
-                boxEl.style.height = box.h + '%';
-
-                const label = document.createElement('span');
-                label.className = 'bounding-box-label';
-                label.innerText = box.label;
-                boxEl.appendChild(label);
-
-                boxContainer.appendChild(boxEl);
-            });
-        }
-    }, 600);
-
-    setTimeout(() => {
-        toastText.innerHTML = `<span style="color:#38bdf8;">[LLM 보정]</span> 텍스트 오류 복구 및 코드 들여쓰기 교정 완료.`;
-    }, 1800);
-
-    setTimeout(() => {
-        syncCodeEditor(index, true, force);
-
-        overlay.classList.add('hidden');
-        toast.classList.add('hidden');
-        scanningActive = false;
-    }, 3000);
-}
-
-function syncCodeEditor(index, animate = false, force = false) {
-    const item = presets[currentPresetKey].timeline[index];
-    if (!item) return;
-
-    if (editor) {
-        if (force || !editor.hasFocus()) {
-            editor.setValue(item.code);
-            window.capturedCode = item.code; // Sync captured variable
-
-            if (animate) {
-                if (typeof editor.lineCount === 'function') {
-                    const lineCount = editor.lineCount();
-                    editor.scrollIntoView({ line: lineCount - 1, ch: 0 });
-                }
-            }
-        }
-    }
-
-    const items = document.querySelectorAll('.timeline-item');
-    items.forEach((el, idx) => {
-        if (idx === index) {
-            el.classList.add('active');
-            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } else {
-            el.classList.remove('active');
-        }
-    });
-}
-
-// ==========================================
-// Smart Timeline Module
-// ==========================================
-
-function renderTimeline() {
-    const timelineList = document.getElementById('timeline-list');
-    if (!timelineList) return;
-    timelineList.innerHTML = '';
-
-    const activePreset = presets[currentPresetKey];
-
-    activePreset.timeline.forEach((item, idx) => {
-        const itemEl = document.createElement('div');
-        itemEl.className = `timeline-item ${idx === 0 ? 'active' : ''}`;
-
-        const timeStr = formatTime(item.time);
-
-        let snippet = '';
-        const lines = item.code.split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#'));
-        if (lines.length > 0) {
-            snippet = lines[0].substring(0, 40) + (lines[0].length > 40 ? '...' : '');
-        } else {
-            snippet = '실습 환경 초기화';
-        }
-
-        itemEl.innerHTML = `
-            <div class="timeline-time">${timeStr}</div>
-            <div class="timeline-content">
-                <span class="timeline-item-title">${item.label}</span>
-                <span class="timeline-item-subtitle">${snippet}</span>
-            </div>
-            <i data-lucide="play-circle" class="timeline-play-indicator"></i>
-        `;
-
-        itemEl.addEventListener('click', () => {
-            if (player && typeof player.seekTo === 'function') {
-                player.seekTo(item.time, true);
-
-                if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
-                    player.playVideo();
-                }
-
-                lastTriggeredIdx = idx;
-                
-                const activePreset = presets[currentPresetKey];
-                const videoId = activePreset ? activePreset.videoId : '';
-                if (videoId) {
-                    if (isMockPlayer) {
-                        // In mock player mode, sync editor using local preset code directly
-                        syncCodeEditor(idx, true, true);
-                    } else {
-                        fetchExtractedCode(videoId, item.time, true, true);
-                    }
-                }
-            }
-        });
-
-        timelineList.appendChild(itemEl);
-    });
-
-    lucide.createIcons();
-}
 
 // ==========================================
 // Code Runner Sandbox Engine
@@ -1134,8 +967,6 @@ function switchPreset(key) {
         initYouTubePlayer();
     }
 
-    renderTimeline();
-
     if (editor) {
         editor.setValue(presets[key].defaultCode);
         window.capturedCode = presets[key].defaultCode; // Sync captured variable
@@ -1250,7 +1081,6 @@ function setupMockPlayerFallback() {
     mockDuration = activePreset.timeline[activePreset.timeline.length - 1].time + 60;
     document.getElementById('duration-time').innerText = formatTime(mockDuration);
 
-    renderTimeline();
     updateMockScreenCode();
 }
 
