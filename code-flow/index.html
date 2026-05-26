@@ -32,6 +32,9 @@
 
     <!-- Pyodide WASM Python Runner (MPL 2.0 License) -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+    <!-- Marked.js Markdown Parser (MIT License) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
 <body>
@@ -43,13 +46,16 @@
                 <div class="logo-text">
                     <h1>AI YouTube Coding Assistant</h1>
                 </div>
+                <div class="robot-character-container">
+                    <img id="robot-character" src="robot_idle.png" alt="Robot Helper" class="robot-logo-img" />
+                </div>
             </div>
 
             <div class="url-input-container">
                 <i data-lucide="youtube" class="youtube-input-icon"></i>
                 <input type="text" id="youtube-url"
-                    placeholder="유튜브 코딩 강의 URL을 입력하세요 (예: https://www.youtube.com/watch?...)"
-                    value="https://www.youtube.com/watch?v=k_I82a2tJpI" />
+                    placeholder="유튜브 코딩 강의 URL을 입력하세요."
+                    value="" />
                 <button id="load-btn" class="glow-btn-blue">
                     <i data-lucide="link"></i>
                     <span>강의 연동</span>
@@ -74,7 +80,7 @@
                         <div id="youtube-player" class="mock-player-container">
                             <div class="mock-video-display">
                                 <i data-lucide="video" class="mock-video-icon"></i>
-                                <h3 class="mock-video-title">동영상 학습 영역</h3>
+                                <h3 class="mock-video-title">비디오 플레이어 🎬</h3>
                                 <p class="mock-video-subtitle">
                                     상단 입력창에 공부하고 싶은 유튜브 코딩 강의 링크를 넣고 [강의 연동] 버튼을 눌러보세요!<br>
                                     오른쪽 에디터가 영상 속 코드를 자동으로 실시간 스캔하여 똑같이 받아 적어줍니다.
@@ -127,20 +133,24 @@
                             <h2>실시간 코드 에디터</h2>
                         </div>
                         <div class="editor-controls">
-                            <div class="select-wrapper">
+                            <div class="select-wrapper editor-ctrl-item">
                                 <i data-lucide="chevron-down" class="dropdown-arrow"></i>
-                                <select id="language-select">
+                                <select id="language-select" class="editor-btn-base">
                                     <option value="python">Python</option>
                                     <option value="c">C</option>
                                     <option value="cpp">C++</option>
                                     <option value="java">Java</option>
                                 </select>
                             </div>
-                            <button id="save-btn" class="icon-btn" title="파일로 저장">
+                            <button id="copy-btn" class="editor-btn-base icon-btn-normal" title="코드 복사">
+                                <i data-lucide="copy"></i>
+                                <span>복사</span>
+                            </button>
+                            <button id="save-btn" class="editor-btn-base icon-btn-normal" title="파일로 저장">
                                 <i data-lucide="download"></i>
                                 <span>저장</span>
                             </button>
-                            <button id="run-btn" class="glow-btn-green" title="코드 실행">
+                            <button id="run-btn" class="editor-btn-base glow-btn-green-normal" title="코드 실행">
                                 <i data-lucide="play"></i>
                                 <span>실행 (Run)</span>
                             </button>
@@ -207,6 +217,27 @@
         </main>
     </div>
 
+    <!-- AI Review Modal -->
+    <div id="ai-modal-backdrop" class="modal-backdrop hidden">
+        <div id="ai-modal-card" class="modal-card">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <div class="modal-header-title">
+                        <i data-lucide="sparkles" class="modal-sparkles-icon"></i>
+                        <h2>제미나이 AI 복습 가이드</h2>
+                    </div>
+                    <p class="modal-header-desc">지금까지 수집된 핵심 소스코드를 바탕으로 제미나이가 요약해 준 핵심 정리입니다.</p>
+                </div>
+                <button id="modal-close-btn" class="modal-close-btn" title="닫기">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-review-content" class="modal-review-content markdown-body">
+                    <!-- Dynamically loaded Gemini review guide markdown -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- YouTube IFrame Player API Script Loader -->
     <script>
         // Inject YouTube API
@@ -250,11 +281,11 @@
                 videoId: 'k_I82a2tJpI',
                 title: 'FastAPI 기초 강의',
                 language: 'python',
-                defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
+                defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
                 timeline: [
                     {
                         time: 0,
-                        code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
+                        code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
                     },
                     {
                         time: 15,
@@ -282,11 +313,11 @@
                 videoId: 'l8D1wT6s0Wk',
                 title: 'Pandas 데이터 분석 기초',
                 language: 'python',
-                defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
+                defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
                 timeline: [
                     {
                         time: 0,
-                        code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
+                        code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
                     },
                     {
                         time: 20,
@@ -692,6 +723,18 @@ def __check_syntax__(code):
                 const data = await response.json();
                 const code = data.extracted_code || '';
 
+                // Dynamically accumulate the scanned code into activePreset's timeline
+                const activePreset = presets[currentPresetKey];
+                if (activePreset && activePreset.timeline && code.trim()) {
+                    const existingIdx = activePreset.timeline.findIndex(item => item.time === timestampSec);
+                    if (existingIdx !== -1) {
+                        activePreset.timeline[existingIdx].code = code;
+                    } else {
+                        activePreset.timeline.push({ time: timestampSec, code: code });
+                        activePreset.timeline.sort((a, b) => a.time - b.time);
+                    }
+                }
+
                 // Safeguard against race conditions: Only apply if it matches the latest requested video and timestamp
                 if (videoId !== lastRequestedVideoId || timestampSec !== lastRequestedTimestamp) {
                     if (terminal) {
@@ -1002,7 +1045,155 @@ async def dispatch_request(method, url):
         // Custom UI Controls & Actions
         // ==========================================
 
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function fetchReviewGuide() {
+            const reviewEl = document.getElementById('modal-review-content');
+            if (!reviewEl) return;
+
+            const urlInput = document.getElementById('youtube-url');
+            if (!urlInput || !urlInput.value.trim()) {
+                reviewEl.innerHTML = `
+                    <div class="review-empty-state">
+                        <div class="empty-text">
+                            <strong>아직 가져온 소스코드가 없습니다.</strong><br>
+                            상단 입력창에 유튜브 코딩 강의 링크를 넣고 [강의 연동] 버튼을 눌러보세요!<br>
+                            영상 속 코드가 실시간으로 동기화되면, 이곳에 나만의 맞춤형 요약노트와 복습 가이드를 싹 정리해 드립니다. ✨
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const activePreset = presets[currentPresetKey];
+            if (!activePreset || !activePreset.timeline || activePreset.timeline.length === 0) {
+                reviewEl.innerHTML = `
+                    <div class="review-empty-state">
+                        <div class="empty-text">
+                            <strong>아직 가져온 소스코드가 없습니다.</strong><br>
+                            상단 입력창에 유튜브 코딩 강의 링크를 넣고 [강의 연동] 버튼을 눌러보세요!<br>
+                            영상 속 코드가 실시간으로 동기화되면, 이곳에 나만의 맞춤형 요약노트와 복습 가이드를 싹 정리해 드립니다. ✨
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const sourceCodes = activePreset.timeline.map(item => item.code);
+
+            // Append the current live editor code to make sure latest changes are summarized
+            if (editor) {
+                const currentCode = editor.getValue();
+                if (currentCode.trim() && !sourceCodes.includes(currentCode)) {
+                    sourceCodes.push(currentCode);
+                }
+            }
+
+            reviewEl.innerHTML = `
+                <div class="review-loading">
+                    <div class="spinner"></div>
+                    <span>Gemini AI가 코드를 분석하여 복습 가이드를 생성 중입니다...</span>
+                </div>
+            `;
+
+            fetch('http://localhost:8000/api/review-guide', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source_codes: sourceCodes
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const markdownText = data.guide || '생성된 요약이 없습니다.';
+                if (typeof marked !== 'undefined') {
+                    reviewEl.innerHTML = marked.parse(markdownText);
+                } else {
+                    reviewEl.innerHTML = `<pre style="white-space: pre-wrap;">${escapeHtml(markdownText)}</pre>`;
+                }
+            })
+            .catch(err => {
+                console.error("Gemini API error:", err);
+                reviewEl.innerHTML = `
+                    <div class="review-error">
+                        <i data-lucide="alert-triangle" style="width:20px; height:20px; color:var(--color-red); vertical-align:middle; margin-right:6px;"></i>
+                        <span>AI 복습 가이드 생성 실패: ${escapeHtml(err.message)}</span>
+                    </div>
+                `;
+                lucide.createIcons();
+            });
+        }
+
+        function openAIModal() {
+            const backdrop = document.getElementById('ai-modal-backdrop');
+            if (backdrop) {
+                backdrop.classList.remove('hidden');
+                fetchReviewGuide();
+            }
+        }
+
+        function closeAIModal() {
+            const backdrop = document.getElementById('ai-modal-backdrop');
+            if (backdrop) {
+                backdrop.classList.add('hidden');
+            }
+        }
+
         function setupEventListeners() {
+            // Robot Mascot click wave animation & modal open
+            const robotImg = document.getElementById('robot-character');
+            if (robotImg) {
+                let isWaving = false;
+                robotImg.addEventListener('click', () => {
+                    // Open Modal
+                    openAIModal();
+
+                    if (isWaving) return;
+                    isWaving = true;
+                    
+                    robotImg.src = 'robot_wave.png';
+                    robotImg.classList.add('waving');
+
+                    if (terminal) {
+                        terminal.writeln('\x1b[38;5;82m🤖 [Robot] Hello! 오늘도 힘차게 코딩해봐요! 🚀\x1b[0m');
+                    }
+
+                    setTimeout(() => {
+                        robotImg.src = 'robot_idle.png';
+                        robotImg.classList.remove('waving');
+                        isWaving = false;
+                    }, 1800);
+                });
+            }
+
+            // Modal Close Events
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            if (modalCloseBtn) {
+                modalCloseBtn.addEventListener('click', closeAIModal);
+            }
+            const modalBackdrop = document.getElementById('ai-modal-backdrop');
+            if (modalBackdrop) {
+                modalBackdrop.addEventListener('click', (e) => {
+                    if (e.target === modalBackdrop) {
+                        closeAIModal();
+                    }
+                });
+            }
+
             const playBtn = document.getElementById('play-pause-btn');
             playBtn.addEventListener('click', () => {
                 if (!player || typeof player.getPlayerState !== 'function') return;
@@ -1090,19 +1281,11 @@ async def dispatch_request(method, url):
                             videoId: videoId,
                             title: '외부 유튜브 강의 실습',
                             language: 'python',
-                            defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
+                            defaultCode: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`,
                             timeline: [
                                 {
                                     time: 0,
-                                    code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생하거나 타임라인을 클릭해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
-                                },
-                                {
-                                    time: 10,
-                                    code: `import math\nimport os\n\nprint("External environment initialized")\n`
-                                },
-                                {
-                                    time: 30,
-                                    code: `import math\nimport os\n\ndef calculate_sphere_volume(radius):\n    # 구의 부피 계산 함수\n    volume = (4/3) * math.pi * (radius ** 3)\n    return volume\n\nr = 5\nvol = calculate_sphere_volume(r)\nprint(f"반지름 {r}인 구의 부피: {vol:.2f}")\n`
+                                    code: `# 🚀 AI YouTube Coding Assistant에 오신 것을 환영합니다!\n#\n# 1. 상단에 유튜브 강의 링크를 연동하면 영상 속 코드가 이곳에 자동으로 동기화됩니다.\n# 2. '실시간 AI 자동 스캔: ON' 상태로 영상을 자유롭게 재생해 보세요.\n# 3. 완성된 코드는 우측 상단의 [실행 (Run)] 버튼을 눌러 바로 터미널에서 결과를 확인할 수 있습니다.\n`
                                 }
                             ]
                         };
@@ -1128,6 +1311,34 @@ async def dispatch_request(method, url):
                 } else {
                     alert('올바른 유튜브 주소 형식이 아닙니다.');
                 }
+            });
+
+            const copyBtn = document.getElementById('copy-btn');
+            copyBtn.addEventListener('click', () => {
+                if (!editor) return;
+                const code = window.capturedCode || editor.getValue();
+
+                navigator.clipboard.writeText(code).then(() => {
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = `<i data-lucide="check"></i><span>복사됨!</span>`;
+                    copyBtn.style.borderColor = 'var(--color-green)';
+                    copyBtn.style.color = 'var(--color-green)';
+                    lucide.createIcons();
+
+                    if (terminal) {
+                        terminal.writeln('\x1b[38;5;82m[System] 코드가 클립보드에 복사되었습니다.\x1b[0m');
+                    }
+
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalHTML;
+                        copyBtn.style.borderColor = '';
+                        copyBtn.style.color = '';
+                        lucide.createIcons();
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    alert('복사에 실패했습니다.');
+                });
             });
 
             const runBtn = document.getElementById('run-btn');
@@ -1253,14 +1464,14 @@ async def dispatch_request(method, url):
             if (!playerDiv) return;
 
             terminal.writeln('\x1b[38;5;220m[System Warning] YouTube IFrame API 로드 지연 감지 (로컬 file:// 실행 보안 또는 네트워크 지연).\x1b[0m');
-            terminal.writeln('\x1b[38;5;82m[System] 비디오 에뮬레이션 플레이어 모드로 자동 전환하여 실습 동기화를 유지합니다.\x1b[0m');
+            terminal.writeln('\x1b[38;5;82m[System] 비디오 플레이어 모드로 자동 전환하여 실습 동기화를 유지합니다.\x1b[0m');
 
             playerDiv.outerHTML = `
                 <div id="youtube-player" class="mock-player-container">
                     <div class="mock-video-display">
                         <div class="mock-video-glow"></div>
                         <i data-lucide="video-off" class="mock-video-icon"></i>
-                        <h3 class="mock-video-title">비디오 에뮬레이션 플레이어 활성화 완료 🎬</h3>
+                        <h3 class="mock-video-title">비디오 플레이어 🎬</h3>
                         <p class="mock-video-subtitle">
                             상단 입력창에 공부하고 싶은 유튜브 코딩 강의 링크를 넣고 [강의 연동] 버튼을 눌러보세요!<br>
                             오른쪽 에디터가 영상 속 코드를 자동으로 실시간 스캔하여 똑같이 받아 적어줍니다.
@@ -1314,9 +1525,8 @@ async def dispatch_request(method, url):
                 }
             };
 
-            const activePreset = presets[currentPresetKey];
-            mockDuration = activePreset.timeline[activePreset.timeline.length - 1].time + 60;
-            document.getElementById('duration-time').innerText = formatTime(mockDuration);
+            mockDuration = 0;
+            document.getElementById('duration-time').innerText = "00:00";
 
             updateMockScreenCode();
         }

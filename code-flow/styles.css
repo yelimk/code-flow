@@ -129,6 +129,37 @@ body {
     filter: drop-shadow(0 2px 4px var(--color-blue-glow));
 }
 
+/* Robot Mascot logo container */
+.robot-character-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform var(--transition-speed) ease-in-out;
+}
+
+.robot-character-container:hover {
+    transform: scale(1.15);
+}
+
+.robot-logo-img {
+    height: 36px;
+    width: 36px;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 6px rgba(56, 189, 248, 0.2));
+    transition: all var(--transition-speed);
+}
+
+@keyframes robotWaveTilt {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-6deg); }
+    75% { transform: rotate(6deg); }
+}
+
+.robot-logo-img.waving {
+    animation: robotWaveTilt 0.4s infinite ease-in-out;
+}
+
 .logo-text h1 {
     font-size: 1.15rem;
     font-weight: 700;
@@ -171,9 +202,14 @@ body {
     background: transparent;
     border: none;
     outline: none;
-    color: var(--text-primary);
+    color: var(--text-muted); /* 플레이스홀더와 동일한 회색 유지 */
     font-family: var(--font-ui);
     font-size: 0.85rem;
+    transition: color var(--transition-speed);
+}
+
+.url-input-container input:focus {
+    color: var(--text-primary); /* 포커스(입력) 시에는 선명한 어두운 색상 */
 }
 
 .url-input-container input::placeholder {
@@ -522,44 +558,83 @@ input:checked+.slider:before {
 .editor-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+}
+
+/* Base button styling with unified height and natural organic widths */
+.editor-btn-base {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px; /* 자연스럽고 균형잡힌 좌우 여백 */
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 0.78rem;
+    cursor: pointer;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    transition: all var(--transition-speed);
+    outline: none;
+    box-sizing: border-box;
+    white-space: nowrap; /* 글자 줄바꿈 방지 */
 }
 
 /* Dropdown Language Selector */
-.select-wrapper {
+.select-wrapper.editor-ctrl-item {
     position: relative;
     display: flex;
     align-items: center;
 }
 
-.select-wrapper select {
+select.editor-btn-base {
     background: #ffffff;
-    border: 1px solid rgba(148, 163, 184, 0.2);
     color: var(--text-primary);
-    padding: 6px 30px 6px 12px;
-    border-radius: 8px;
-    font-size: 0.78rem;
-    font-family: var(--font-ui);
-    font-weight: 500;
-    outline: none;
-    cursor: pointer;
+    padding-left: 14px;
+    padding-right: 32px; /* 화살표 여백 확보 */
     appearance: none;
     -webkit-appearance: none;
-    transition: all var(--transition-speed);
+    text-align-last: left;
 }
 
-.select-wrapper select:hover {
+select.editor-btn-base:hover {
     background: var(--bg-input);
     border-color: var(--color-blue);
 }
 
 .dropdown-arrow {
     position: absolute;
-    right: 10px;
+    right: 12px;
     width: 14px;
     height: 14px;
     color: var(--text-secondary);
     pointer-events: none;
+}
+
+.icon-btn-normal {
+    background: #ffffff;
+    color: var(--text-secondary);
+}
+
+.icon-btn-normal:hover {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border-color: var(--color-blue);
+}
+
+.glow-btn-green-normal {
+    background: var(--color-green);
+    color: white;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.15);
+}
+
+.glow-btn-green-normal:hover {
+    background: #10b981;
+    box-shadow: 0 4px 16px rgba(52, 211, 153, 0.25);
+    transform: translateY(-1px);
 }
 
 .icon-btn,
@@ -822,7 +897,7 @@ input:checked+.slider:before {
     font-size: 0.85rem;
     color: #555555;
     line-height: 1.8;
-    max-width: 420px;
+    max-width: 580px;
     word-break: keep-all;
 }
 
@@ -840,4 +915,361 @@ input:checked+.slider:before {
     background-repeat: repeat-x !important;
     background-position: bottom !important;
     padding-bottom: 2px !important;
+}
+
+/* ==========================================
+   AI Learning History & Review Modal
+   ========================================== */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+
+.modal-backdrop.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-card {
+    width: 680px;
+    max-width: 90%;
+    max-height: 85vh;
+    background: #ffffff;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(14, 165, 233, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalZoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalZoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    background: #ffffff;
+    gap: 16px;
+}
+
+.modal-header-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.modal-header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-header-desc {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.modal-sparkles-icon {
+    width: 22px;
+    height: 22px;
+    color: var(--color-blue);
+    filter: drop-shadow(0 2px 4px rgba(56, 189, 248, 0.3));
+}
+
+.modal-header h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+}
+
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-speed);
+}
+
+.modal-close-btn:hover {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    transform: scale(1.05);
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: #fafafa;
+}
+
+.modal-section {
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 15px rgba(148, 163, 184, 0.02);
+}
+
+.modal-section-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.sec-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.sec-icon.blue {
+    color: var(--color-blue);
+}
+
+.sec-icon.purple {
+    color: var(--color-purple);
+}
+
+.modal-section-desc {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+/* Gemini review content & loading spinner */
+.modal-review-content {
+    min-height: 120px;
+    max-height: 480px;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 14px;
+    padding: 20px 24px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    box-shadow: 0 4px 15px rgba(148, 163, 184, 0.02);
+}
+
+.review-empty-state {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    min-height: 220px;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px dashed rgba(148, 163, 184, 0.18);
+    border-radius: 12px;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 2.2rem;
+    animation: bounce 2s infinite ease-in-out;
+}
+
+.empty-text {
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    word-break: keep-all;
+}
+
+.empty-text strong {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    display: inline-block;
+    margin-bottom: 6px;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+.review-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    padding: 36px 0;
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 2.5px solid rgba(56, 189, 248, 0.1);
+    border-top-color: var(--color-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.review-error {
+    color: var(--color-red);
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(248, 113, 113, 0.03);
+    border-radius: 8px;
+    border: 1px dashed rgba(248, 113, 113, 0.2);
+}
+
+/* Markdown parsing output layout inside modal */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+    margin-top: 18px;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.markdown-body h3 {
+    font-size: 0.96rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.markdown-body h2 {
+    font-size: 1.05rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    padding-bottom: 6px;
+}
+
+.markdown-body p {
+    margin-bottom: 8px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 20px;
+    margin-bottom: 12px;
+}
+
+.markdown-body li {
+    margin-bottom: 6px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+
+.markdown-body code {
+    background: var(--bg-input);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--text-primary);
+}
+
+.markdown-body pre {
+    background: var(--bg-input);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    overflow-x: auto;
+    margin: 8px 0;
+}
+
+.markdown-body pre code {
+    background: transparent;
+    padding: 0;
+    color: var(--text-primary);
+}
+
+/* Premium Markdown Table Design */
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.78rem;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01);
+}
+
+.markdown-body th,
+.markdown-body td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-body td {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+
+.markdown-body th {
+    background-color: var(--bg-sub);
+    color: var(--text-primary);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.markdown-body tr:last-child td {
+    border-bottom: none;
+}
+
+.markdown-body tr:hover {
+    background-color: rgba(56, 189, 248, 0.03);
 }
