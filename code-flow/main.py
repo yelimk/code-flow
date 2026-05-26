@@ -6,10 +6,15 @@ import cv2
 import yt_dlp
 import datetime
 import re
+import dotenv
+import google.generativeai as genai
 from google.cloud import vision
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Load environment variables from .env file
+dotenv.load_dotenv(override=True)
 
 # Reconfigure standard streams to UTF-8 to prevent encoding errors on Windows when printing unicode characters
 if hasattr(sys.stdout, 'reconfigure'):
@@ -34,6 +39,8 @@ FILTER_Y_END_PCT = 98.0   # Skip bottom 2% (usually editor status bar)
 # Logger configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("CodeFlowBackend")
+
+logger.info(f"GEMINI_API_KEY loaded: {os.environ.get('GEMINI_API_KEY')[:8] if os.environ.get('GEMINI_API_KEY') else 'None'}...")
 
 DB_FILE = "ocr_cache.db"
 
@@ -68,6 +75,13 @@ def get_vision_client():
     global vision_client
     if vision_client is None:
         try:
+            # 환경 변수가 설정되어 있지 않거나 가리키는 파일이 존재하지 않는 경우, 로컬 gcp-key.json 파일을 찾아 사용합니다.
+            cred_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+            if not cred_path or not os.path.exists(cred_path):
+                local_key = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gcp-key.json')
+                if os.path.exists(local_key):
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = local_key
+                    logger.info(f"GOOGLE_APPLICATION_CREDENTIALS 환경 변수를 로컬 파일로 설정했습니다: {local_key}")
             vision_client = vision.ImageAnnotatorClient()
         except Exception as e:
             logger.error(f"Google Cloud Vision Client 생성 실패: {e}")
@@ -123,6 +137,19 @@ def is_valid_python_line(line: str) -> bool:
     line_stripped = line.strip()
     if not line_stripped:
         return True  # Keep empty lines
+        
+    # 0. Exclude VS Code IntelliSense auto-complete tooltip patterns
+    tooltip_keywords = ['Optional[', 'param *', 'flush:', 'bool=...', 'CONC', '= ...', '(method)', '(function)', '(class)', 'object,']
+    if any(kw in line_stripped for kw in tooltip_keywords):
+        return False
+        
+    # Exclude tooltip type signature previews that do not end with a colon
+    if '->' in line_stripped and not line_stripped.rstrip().endswith(':'):
+        return False
+        
+    # Exclude signature list helpers (e.g. '*values: object')
+    if '*' in line_stripped and 'object' in line_stripped:
+        return False
     
     # 1. Comment lines are always valid
     if line_stripped.startswith('#'):
@@ -307,7 +334,7 @@ def startup_event():
     logger.info("Google Cloud Vision API Client 초기화 중...")
     try:
         # 비전 API 클라이언트는 최초 기동 시 시도하되, 환경 변수가 없어도 앱 구동 자체가 실패하지 않도록 예외 처리합니다.
-        vision_client = vision.ImageAnnotatorClient()
+        vision_client = get_vision_client()
         logger.info("Google Cloud Vision API Client 초기화 완료!")
     except Exception as e:
         logger.warning(f"Google Cloud Vision API Client 초기화 실패 (환경변수 설정 전일 수 있음): {e}")
@@ -365,11 +392,16 @@ async def sync_code(payload: SyncCodeRequest):
         row = cursor.fetchone()
         if row:
             logger.info(f"Cache HIT for video_id={video_id}, time={timestamp_sec}s")
+            raw_code = row["extracted_code"]
+            # Apply updated is_valid_python_line filter on-the-fly to cached code
+            cleaned_lines = [line for line in raw_code.split('\n') if is_valid_python_line(line)]
+            filtered_code = "\n".join(cleaned_lines)
+            
             usage_count = get_current_google_api_usage()
             return {
                 "video_id": video_id,
                 "timestamp_sec": timestamp_sec,
-                "extracted_code": row["extracted_code"],
+                "extracted_code": filtered_code,
                 "cached": True,
                 "google_api_usage_count": usage_count
             }
@@ -486,3 +518,60 @@ async def sync_code(payload: SyncCodeRequest):
         "cached": False,
         "google_api_usage_count": usage_count
     }
+
+class ReviewGuideRequest(BaseModel):
+    source_codes: list[str]
+
+@app.post("/api/review-guide")
+async def generate_review_guide(payload: ReviewGuideRequest):
+    combined_code = "\n\n# --- 다음 코드 포인트 ---\n\n".join(payload.source_codes)
+    if not combined_code.strip():
+        return {"guide": "수집된 소스코드가 없습니다. 비디오를 재생하거나 타임라인을 클릭하여 코드를 수집해 주세요!"}
+
+    dotenv.load_dotenv(override=True)
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        logger.error("GEMINI_API_KEY environment variable is not set.")
+        return {
+            "guide": "🚨 **오류**: 백엔드 서버에 `GEMINI_API_KEY`가 설정되지 않았습니다.\n\n프로젝트 루트 디렉토리의 `.env` 파일에 발급받으신 Gemini API 키를 등록하고 서버를 재시작해 주세요!"
+        }
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        prompt = (
+            "아래는 학습자가 오늘 유튜브 강의를 보며 작성한 파이썬 소스코드 데이터야.\n"
+            f"```python\n{combined_code}\n```\n\n"
+            "[제미나이 출력 가이드라인]\n"
+            "1. 입력된 코드에서 가장 핵심이 되는 문법 개념(예: 특정 자료형들, 제어문 구조, 함수/클래스 등)을 스스로 분석하여 최대 2~4개 추출해 줘.\n"
+            "2. 추출한 개념들의 핵심 차이점, 특징(순서, 수정 가능 여부, 작동 흐름 등)을 전공자 요약 노트 스타일로 대비/대조하여 설명해 줘.\n"
+            "3. '추천 복습 포인트'나 학습 안내 가이드라인, 서론, 결론, 미사여구는 아예 완전히 배제하고 오직 아래의 2가지 마크다운(Markdown) 양식만 정확히 반환해 줘. 다른 어떠한 텍스트도 덧붙이지 말 것.\n"
+            "4. 모든 설명은 한 줄 내외로 극단적으로 짧고 명확하게 압축해 줘. 절대 설명이 길어지지 않게 텍스트 양을 꽉 압축할 것.\n"
+            "5. 텍스트 추출 과정이나 타이핑 중에 발생한 자잘한 '오타, 문법 에러, 실수, SyntaxError'에 대한 언급이나 분석은 **아예 완전히 배제(무시)**할 것.\n"
+            "6. 결과물에 '오류', '실수', '잘못된', 'SyntaxError'라는 단어가 절대 포함되지 않도록 긍정적으로 작성할 것.\n\n"
+            "--- 출력 양식 (이 구조를 100% 엄격하게 유지하면서 입력된 소스코드 데이터의 변수명이나 흐름을 자연스럽게 녹여서 채울 것) ---\n"
+            "### 💡 오늘의 핵심 문법 요약\n"
+            "- **[핵심개념A]**: (코드에 쓰인 문법 A의 핵심 정의와 작동 원리를 타 문법과 대비하여 한 줄 요약)\n"
+            "- **[핵심개념B]**: (코드에 쓰인 문법 B의 핵심 정의와 작동 원리를 타 문법과 대비하여 한 줄 요약)\n"
+            "- **[핵심개념C]**: (필요시 코드에 쓰인 문법 C나 상호 연동 흐름을 한 줄 요약)\n\n"
+            "### 🛠️ 오늘 배운 주요 명령어\n"
+            "| 명령어 / 키워드 | 핵심 기능 (한 줄 요약) |\n"
+            "| :--- | :--- |\n"
+            "| `코드에 쓰인 명령어1` | 해당 명령어의 역할과 핵심 기능 설명 |\n"
+            "| `코드에 쓰인 명령어2` | 해당 명령어의 역할과 핵심 기능 설명 |\n"
+            "| `코드에 쓰인 명령어3` | 해당 명령어의 역할과 핵심 기능 설명 |"
+        )
+        
+        response = model.generate_content(prompt)
+        if not response.text:
+            raise ValueError("Gemini가 빈 응답을 반환했습니다.")
+            
+        return {"guide": response.text}
+    except Exception as e:
+        logger.error(f"Gemini API 호출 중 오류 발생: {e}")
+        err_msg = str(e).lower()
+        if "429" in err_msg or "resource_exhausted" in err_msg or "quota" in err_msg:
+            return {"guide": "⚠️ **오늘의 무료 AI 요약 한도를 초과했습니다. 내일 다시 이용해 주세요!**"}
+        else:
+            return {"guide": f"🚨 **AI 요약 생성 중 에러가 발생했습니다**:\n\n{str(e)}"}
